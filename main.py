@@ -19,17 +19,20 @@ def initialize_states():
     if 'participants' not in st.session_state:
         st.session_state.participants = []
 
-    if 'participants_and_restrictions' not in st.session_state:
-        st.session_state.participants_and_restrictions = {}
+    if 'restrictions' not in st.session_state:
+        st.session_state.restrictions = {}
 
     if 'enable_res_generation' not in st.session_state:
         st.session_state.enable_res_generation = False
+
+    # if 'waha_initialized' not in st.session_state:
+    #     st.session_state.waha_initialized = False
 
 
 def render_header():
     st.write('# 🎅🏻 Secret Santa')
 
-    ss_desc = st.text_input('Descreva o identificador do seu sorteio', placeholder='Amigo Secreto')
+    ss_desc = st.text_input('Descreva o identificador do seu sorteio', value='Amigo Secreto')
     if ss_desc is None: ss_desc = 'Amigo Secreto'
     ss_desc = ss_desc.title().strip().replace(' ', '')
 
@@ -45,7 +48,7 @@ def handle_header(num_participants):
     st.session_state.show_restrictions = False  # Reseta para garantir que vai sumir com o menu para nova geração
     st.session_state.num_participants = num_participants
     st.session_state.participants = [''] * st.session_state.num_participants
-    del st.session_state.participants_and_restrictions
+    del st.session_state.restrictions
     st.session_state.enable_res_generation = False
 
 
@@ -75,31 +78,33 @@ def handle_participants_form():
         st.session_state.show_restrictions = True
         
         # Inicializa dicionário das restrições (apenas 1 vez)
-        if "participants_and_restrictions" not in st.session_state:
-            st.session_state.participants_and_restrictions = {
+        if "restrictions" not in st.session_state:
+            st.session_state.restrictions = {
                 p: [] for p in st.session_state.participants
             }
     else:
-        del st.session_state.participants_and_restrictions
+        del st.session_state.restrictions
         st.error('Para avançar é necessário fornecer o nome de todas as pessoas.')
 
 
 def render_restrictions_form():
     st.write('## ❌ Lista de restrições')
-    st.info('Informe quais pessoas o referido participante **NÃO** pode tirar.')
+    st.info('Informe quais pessoas o referido participante **NÃO** pode tirar (além dele próprio).')
 
     for participant in st.session_state.participants:
         # Renderiza o multiselect sempre
-        st.session_state.participants_and_restrictions[participant] = st.multiselect(
-            f'Escolha as pessoas que {participant} **NÃO** pode tirar',
-            options=st.session_state.participants,
-            default=([participant]),
+        participant_opts = st.session_state.participants.copy()
+        participant_opts.remove(participant)
+        st.session_state.restrictions[participant] = st.multiselect(
+            f'Escolha as pessoas que {participant} **NÃO** pode tirar (além dele próprio)',
+            options=participant_opts,
+            default=None,
             key=f'{participant}_restrictions'
         )
 
     with st.expander('_Sumário das restrições_'):
-        for p in st.session_state.participants_and_restrictions.keys():
-            st.write(f'{p} não pode tirar {st.session_state.participants_and_restrictions[p]}')
+        for p in st.session_state.restrictions.keys():
+            st.write(f'{p} não pode tirar {st.session_state.restrictions[p]}')
 
     st.write('Se estiver tudo correto, clique abaixo para gerar os arquivos.')
     clicked_generate_secret_santa = st.button('Finalizar sorteio', key='submit_secret_santa')
@@ -109,7 +114,7 @@ def render_restrictions_form():
 
 def handle_restrictions_form():
     if all(
-        len(st.session_state.participants_and_restrictions[p]) < len(st.session_state.participants) 
+        len(st.session_state.restrictions[p]) < len(st.session_state.participants) 
         for p in st.session_state.participants):
         st.session_state.enable_res_generation = True
         
@@ -122,8 +127,9 @@ def generate_res(ss_desc):
     ts = dt.datetime.now().strftime('%d-%m-%YT%H:%M:%S')
     filename = f'/tmp/{ss_desc}-{ts}.zip'
     
+    ss = SecretSanta(st.session_state.participants, st.session_state.restrictions, ss_desc)
     with st.spinner('Gerando sorteio...'):
-        ss = SecretSanta(st.session_state.participants_and_restrictions, ss_desc)
+        ss.generate_drawing()
         ss.export_to_file(f'/tmp/{ss_desc}-{ts}/')  # Colocar timestamp para diferenciar...
         shutil.make_archive(f'/tmp/{ss_desc}-{ts}', 'zip', f'/tmp/{ss_desc}-{ts}/')
         shutil.rmtree(f'/tmp/{ss_desc}-{ts}/')
@@ -172,89 +178,5 @@ def main():
                 render_download(filename)
 
 
-def test():
-    load_dotenv()
-    
-    st.write("# Testando interface com Streamlit!")
-
-    waha = Waha(
-        session_name="default",
-        host="localhost",
-        api_port=os.environ.get("WHATSAPP_API_PORT"),
-        api_key=os.environ.get("WAHA_API_KEY")
-    )
-    
-    if 'waha_initialized' not in st.session_state:
-        st.session_state.waha_initialized = False
-
-    if st.session_state.waha_initialized is False:
-        start_waha_placeholder = st.empty()
-        start_waha = start_waha_placeholder.button('Clique aqui para inicializar o serviço WhatsApp', use_container_width=True)
-        if start_waha:
-            with st.spinner("Iniciando WAHA..."):
-                text_placeholder = st.empty()
-
-                _, center, _ = st.columns(3)
-                img_placeholder = center.empty()
-
-                try:
-                    waha.logout_session()
-                except Exception:
-                    pass
-
-                create_session_code, create_session_content = waha.create_session()
-                print(create_session_code, create_session_content)
-
-                start_session_code, start_session_content = waha.start_session()
-                print(start_session_code, start_session_content)
-
-                session_status_code, session_status_content = waha.get_session_status()
-                print(session_status_code, session_status_content)
-
-                status = session_status_content.get("status", "STARTING")
-                while status == "STARTING":
-                    time.sleep(5)
-                    session_status_code, session_status_content = waha.get_session_status()
-                    status = session_status_content.get("status", "STARTING")
-                    print(session_status_code, session_status_content)
-
-                auth_code, auth_content = waha.authenticate()
-                print(auth_code, auth_content)
-                
-                qr_data = auth_content.get("data")
-                qr_data_bytes = base64.b64decode(qr_data)
-
-            text_placeholder.write('## Escaneie a imagem abaixo para começar...')
-            img_placeholder.image(qr_data_bytes)
-
-            status = session_status_content.get("status", "STARTING")
-            while status == "SCAN_QR_CODE":
-                time.sleep(5)
-                session_status_code, session_status_content = waha.get_session_status()
-                status = session_status_content.get("status", "SCAN_QR_CODE")
-            
-            img_placeholder.empty()
-            start_waha_placeholder.empty()
-            st.session_state.waha_initialized = True
-    
-    if st.session_state.waha_initialized:
-        phone_number = st.text_input('Insira o número do destinatário: ')
-        msg = st.text_input('Escreva sua mensagem: ')
-        
-        col1, col2 = st.columns([0.5, 0.5])
-        submit = col1.button('Enviar mensagem!', use_container_width=True)
-        finish_session = col2.button('Encerrar sessão WAHA', use_container_width=True)
-
-        if submit:
-            msg_code, msg_content = waha.send_msg(phone_number, msg)
-            print(msg_code, msg_content)
-        
-        if finish_session:
-            with st.spinner('Encerrando serviço...'):
-                waha.logout_session()
-                st.session_state.waha_initialized = False
-                st.rerun()
-
 if __name__ == '__main__':
-    # main()
-    test()
+    main()

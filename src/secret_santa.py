@@ -116,3 +116,14 @@ class SecretSanta:
             raise ValueError("Participante inexistente.")
 
         return res
+    
+
+    def export_to_file(self, export_dir: str) -> None:
+        if not os.path.isdir(export_dir):
+            os.makedirs(export_dir)
+
+        for k, v in self._results.items():
+            with open(f'{export_dir}/{k}-{self._description.replace(" ", "_")}.txt', 'w') as file:
+                file.write(f'===============================================================\n'
+                           f'{k}, você tirou o(a) {v} para {self._description}\n'
+                           f'===============================================================')
