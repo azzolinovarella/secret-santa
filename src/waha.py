@@ -14,8 +14,6 @@ class Waha:
         self._host = host
         self._api_port = api_port
         self._api_key = api_key
-
-
     
     def _process_response(self, url, method, payload=None):
         headers = {
@@ -73,6 +71,7 @@ class Waha:
     def logout_session(self) -> Dict[str, Any]:
         url = f"http://{self._host}:{self._api_port}/api/sessions/{self._session_name}/logout"
         return self._process_response(url, "POST")
+
 
 if __name__ == "__main__":
     load_dotenv()

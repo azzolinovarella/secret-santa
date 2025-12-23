@@ -1,10 +1,13 @@
 import shutil
 import os
+import time
+import base64
 from multiprocessing import pool
 import datetime as dt
 import streamlit as st
 from src.secret_santa import SecretSanta
-
+from src.waha import Waha
+from dotenv import load_dotenv
 
 def initialize_states():
     if 'show_participants' not in st.session_state:
@@ -168,5 +171,90 @@ def main():
                 filename = generate_res(ss_desc)
                 render_download(filename)
 
+
+def test():
+    load_dotenv()
+    
+    st.write("# Testando interface com Streamlit!")
+
+    waha = Waha(
+        session_name="default",
+        host="localhost",
+        api_port=os.environ.get("WHATSAPP_API_PORT"),
+        api_key=os.environ.get("WAHA_API_KEY")
+    )
+    
+    if 'waha_initialized' not in st.session_state:
+        st.session_state.waha_initialized = False
+
+    if st.session_state.waha_initialized is False:
+        start_waha_placeholder = st.empty()
+        start_waha = start_waha_placeholder.button('Clique aqui para inicializar o serviço WhatsApp', use_container_width=True)
+        if start_waha:
+            with st.spinner("Iniciando WAHA..."):
+                text_placeholder = st.empty()
+
+                _, center, _ = st.columns(3)
+                img_placeholder = center.empty()
+
+                try:
+                    waha.logout_session()
+                except Exception:
+                    pass
+
+                create_session_code, create_session_content = waha.create_session()
+                print(create_session_code, create_session_content)
+
+                start_session_code, start_session_content = waha.start_session()
+                print(start_session_code, start_session_content)
+
+                session_status_code, session_status_content = waha.get_session_status()
+                print(session_status_code, session_status_content)
+
+                status = session_status_content.get("status", "STARTING")
+                while status == "STARTING":
+                    time.sleep(5)
+                    session_status_code, session_status_content = waha.get_session_status()
+                    status = session_status_content.get("status", "STARTING")
+                    print(session_status_code, session_status_content)
+
+                auth_code, auth_content = waha.authenticate()
+                print(auth_code, auth_content)
+                
+                qr_data = auth_content.get("data")
+                qr_data_bytes = base64.b64decode(qr_data)
+
+            text_placeholder.write('## Escaneie a imagem abaixo para começar...')
+            img_placeholder.image(qr_data_bytes)
+
+            status = session_status_content.get("status", "STARTING")
+            while status == "SCAN_QR_CODE":
+                time.sleep(5)
+                session_status_code, session_status_content = waha.get_session_status()
+                status = session_status_content.get("status", "SCAN_QR_CODE")
+            
+            img_placeholder.empty()
+            start_waha_placeholder.empty()
+            st.session_state.waha_initialized = True
+    
+    if st.session_state.waha_initialized:
+        phone_number = st.text_input('Insira o número do destinatário: ')
+        msg = st.text_input('Escreva sua mensagem: ')
+        
+        col1, col2 = st.columns([0.5, 0.5])
+        submit = col1.button('Enviar mensagem!', use_container_width=True)
+        finish_session = col2.button('Encerrar sessão WAHA', use_container_width=True)
+
+        if submit:
+            msg_code, msg_content = waha.send_msg(phone_number, msg)
+            print(msg_code, msg_content)
+        
+        if finish_session:
+            with st.spinner('Encerrando serviço...'):
+                waha.logout_session()
+                st.session_state.waha_initialized = False
+                st.rerun()
+
 if __name__ == '__main__':
-    main()
+    # main()
+    test()
