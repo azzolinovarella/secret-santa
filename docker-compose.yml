@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  # streamlit:
+  #   build: .
+  #   container_name: streamlit-app
+  #   ports:
+  #     - "443:${STREAMLIT_PORT}"
+  #   networks:
+  #     - app-network
+  #   depends_on:
+  #     - waha
+
+  waha:
+    image: devlikeapro/waha:latest
+    container_name: waha
+    ports:
+      - "3000:${WHATSAPP_API_PORT}"
+    networks:
+      - app-network
+    env_file:
+      - .env
+
+networks:
+  app-network:
+    driver: bridge
