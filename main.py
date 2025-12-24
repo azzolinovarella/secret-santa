@@ -350,8 +350,14 @@ def terminate(waha: WAHA):
     terminate_pressed = st.button('Clique aqui para encerrar o sorteio', use_container_width=True,
                                   type='primary') 
     if terminate_pressed:
-        waha.logout_session()
+        if waha is not None:
+            try:
+                waha.logout_session()
+            except Exception:
+                pass
+            
         st.session_state.clear()
+        initialize_states()
         st.rerun()
 
 
