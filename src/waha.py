@@ -7,8 +7,7 @@ from PIL import Image
 from typing import Any, Optional, Dict, Tuple
 from dotenv import load_dotenv
 
-
-class Waha:
+class WAHA:
     def __init__(
         self,
         api_key: str,

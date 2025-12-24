@@ -1,5 +1,8 @@
 .PHONY: up up-d down logs exec
 
+uv:
+	uv sync
+
 build:
 	docker compose build
 

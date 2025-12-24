@@ -52,12 +52,22 @@ def render_participants_form():
 
     # Gera campo a campo para informar os nomes
     for i in range(st.session_state.num_participants):
-        st.session_state.participants[i] = st.text_input(
+        col1, col2 = st.columns([0.6, 0.4])
+        participant_name = col1.text_input(
             f'Insira o nome do participante {i + 1}',
             placeholder='Fulano da Silva',
-            value=st.session_state.participants[i],
-            key=f'participant_{i}'
+            key=f'participant_name_{i}'
         )
+        participant_phone = col2.text_input(
+            f'Insira o telefone do participante {i + 1}',
+            placeholder='551140028922',
+            key=f'participant_phone_{i}'
+        )
+
+        st.session_state.participants[i] = {  # TODO: Melhor forma de fazer isso?
+            'name': participant_name, 
+            'phone': participant_phone
+        }
 
     # Botão para gerar restrições
     clicked_generate_restrictions = st.button('Gerar lista de restrições de sorteio', key='restriction_list',
@@ -66,26 +76,39 @@ def render_participants_form():
     return clicked_generate_restrictions
 
 def handle_participants_form():
-    if all(p.strip() for p in st.session_state.participants):
-        st.session_state.show_restrictions = True
-        
-        # Inicializa dicionário das restrições (apenas 1 vez)
-        if "restrictions" not in st.session_state:
-            st.session_state.restrictions = {
-                p: [] for p in st.session_state.participants
-            }
-    else:
+    names = [p['name'].strip() for p in st.session_state.participants]
+    phones = [p['phone'].replace(' ', '').replace('-', '').replace('+', '') for p in st.session_state.participants]
+    
+    if not all(names):
         del st.session_state.restrictions
         st.error('Para avançar é necessário fornecer o nome de todas as pessoas.')
 
+        return
+    
+    try:
+        _ = [int(p) for p in phones]
+    except ValueError:
+        del st.session_state.restrictions
+        st.error('Todos os números fornecidos devem ser válidos')
+
+        return
+
+    st.session_state.show_restrictions = True
+    if "restrictions" not in st.session_state:  # Inicializa dicionário das restrições (apenas 1 vez)
+        st.session_state.restrictions = {
+            p['name']: [] for p in st.session_state.participants
+        }
+    
 
 def render_restrictions_form():
     st.write('## ❌ Lista de restrições')
     st.info('Informe quais pessoas o referido participante **NÃO** pode tirar (além dele próprio).')
 
-    for participant in st.session_state.participants:
-        # Renderiza o multiselect sempre
-        participant_opts = st.session_state.participants.copy()
+    possible_participants = [p['name'] for p in st.session_state.participants]
+    for participant_dict in st.session_state.participants:
+        participant = participant_dict['name']
+
+        participant_opts = possible_participants.copy()
         participant_opts.remove(participant)
         st.session_state.restrictions[participant] = st.multiselect(
             f'Escolha as pessoas que {participant} **NÃO** pode tirar (além dele próprio)',
@@ -112,7 +135,7 @@ def render_restrictions_form():
 
 def handle_restrictions_form():
     if all(
-        len(st.session_state.restrictions[p]) < len(st.session_state.participants) 
+        len(st.session_state.restrictions[p['name']]) < len(st.session_state.participants) 
         for p in st.session_state.participants):
         st.session_state.enable_res_generation = True
         
@@ -124,8 +147,10 @@ def handle_restrictions_form():
 def generate_res(ss_desc):
     ts = dt.datetime.now().strftime('%d-%m-%YT%H:%M:%S')
     filename = f'/tmp/{ss_desc}-{ts}.zip'
+
+    participants = [p['name'] for p in st.session_state.participants]
     
-    ss = SecretSanta(st.session_state.participants, st.session_state.restrictions, ss_desc)
+    ss = SecretSanta(participants, st.session_state.restrictions, ss_desc)
     with st.spinner('🎲 Gerando sorteio...'):
         try:
             ss.generate_drawing()
