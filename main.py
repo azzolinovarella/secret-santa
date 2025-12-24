@@ -27,6 +27,9 @@ def initialize_states():
     if "waha_initialized" not in st.session_state:
         st.session_state.waha_initialized = False
 
+    if "messages_sent" not in st.session_state:
+        st.session_state.messages_sent = False
+
 
 def render_header() -> Tuple[int, bool, str]:
     st.write("# 🎅🏻 Secret Santa")
@@ -76,6 +79,9 @@ def render_participants_form() -> bool:
             key=f"participant_phone_{i}",
         )
 
+        participant_name = participant_name.strip()
+        participant_phone = participant_phone.replace(" ", "").replace("-", "").replace("+", "")
+
         st.session_state.participants[i] = {  # TODO: Melhor forma de fazer isso?
             "name": participant_name,
             "phone": participant_phone,
@@ -92,11 +98,10 @@ def render_participants_form() -> bool:
 
 
 def handle_participants_form():
-    names = [p["name"].strip() for p in st.session_state.participants]
-    phones = [
-        p["phone"].replace(" ", "").replace("-", "").replace("+", "")
-        for p in st.session_state.participants
-    ]
+    st.session_state.show_restrictions = False  # Começa por padrão considerando que não vai
+
+    names = [p["name"] for p in st.session_state.participants]
+    phones = [p["phone"] for p in st.session_state.participants]
 
     if not all(names):
         del st.session_state.restrictions
@@ -157,7 +162,7 @@ def render_restrictions_form() -> bool:
 
 
 def handle_restrictions_form():
-    st.success("✅ Sorteio finalizado com sucesso!")
+    st.session_state.enable_res_generation = False  # Começa por padrão considerando que não vai
 
     if all(
         len(st.session_state.restrictions[p["name"]])
@@ -167,7 +172,6 @@ def handle_restrictions_form():
         st.session_state.enable_res_generation = True
 
     else:
-        st.session_state.enable_res_generation = False
         st.error(
             "Para avançar é necessário que o usuário possa tirar pelo menos uma pessoa."
         )
@@ -180,13 +184,14 @@ def generate_res(ss_desc: str) -> Optional[SecretSanta]:
     with st.spinner("🎲 Gerando sorteio..."):
         try:
             ss.generate_drawing()
+            st.success("✅ Sorteio finalizado com sucesso!")
             return ss
 
         except TimeoutError:
             st.error(
                 "Não foi possível gerar o sorteio em tempo hábil. É possível que exista uma restrição impossível de ser resolvida. Tente novamente."
             )
-
+    
 
 def render_waha_start() -> WAHA:
     waha = WAHA(
@@ -204,7 +209,7 @@ def render_waha_start() -> WAHA:
     if start_waha:
         with st.spinner("⚙️ Inciando serviço no WhatsApp..."):
             text_placeholder = st.empty()
-            _, center, _ = st.columns(3)
+            _, center, _ = st.columns([0.2, 0.6, 0.2])
             img_placeholder = center.empty()
 
             try:
@@ -219,7 +224,7 @@ def render_waha_start() -> WAHA:
         text_placeholder.write(
             "⏳ Escaneie a imagem abaixo no WhatsApp para continuar..."
         )
-        img_placeholder.image(qr_data_bytes)
+        img_placeholder.image(qr_data_bytes, width="stretch")
 
         try:
             wait_authentication(waha)
@@ -283,30 +288,33 @@ def wait_authentication(waha: WAHA, timeout: int = 120):
 
 
 def send_messages(ss: SecretSanta, waha: WAHA, max_retries: int = 3):
-    for p in st.session_state.participants:
-        name = p["name"]
-        phone = p["phone"]
-        result = ss.get_result(name)
+    with st.spinner('📩 Enviando resultados...'):
+        for p in st.session_state.participants:
+            name = p["name"]
+            phone = p["phone"]
 
-        msg = format_secret_santa_message(name, result, ss.description)
-        success = False
+            result = ss.get_result(name)
 
-        for attempt in range(max_retries + 1):
-            status_code, _ = waha.send_msg(phone, msg)
+            msg = format_secret_santa_message(name, result, ss.description)
+            success = False
 
-            if status_code == 201:
-                success = True
-                break
+            for attempt in range(max_retries + 1):
+                status_code, _ = waha.send_msg(phone, msg)
 
-            time.sleep(5 * attempt)  # Backoff para retry
+                if status_code == 201:
+                    success = True
+                    break
 
-        if not success:
-            masked = base64.b64encode(result.encode()).decode()
-            st.error(
-                f"Houve um erro ao enviar a mensagem para {name} ({phone}).\n"
-                f"Resultado mascarado: {masked}"
-            )
+                time.sleep(5 * attempt)  # Backoff para retry
 
+            if not success:
+                masked = base64.b64encode(msg.encode()).decode()
+                st.error(
+                    f"Houve um erro ao enviar a mensagem para {name} ({phone}).<br>"
+                    f"**Resultado mascarado**: {masked}"
+                )
+
+    st.session_state.messages_sent = True
     st.success("✅ Resultados enviados com sucesso!")
 
 
@@ -338,9 +346,13 @@ def render_audit_res(ss: SecretSanta):
             st.write(f"**Resultado {pp}**: {b64_participants_res[pp]}")
 
 
-def terminate_waha(waha: WAHA):
-    waha.logout_session()
-    del waha
+def terminate(waha: WAHA):
+    terminate_pressed = st.button('Clique aqui para encerrar o sorteio', use_container_width=True,
+                                  type='primary') 
+    if terminate_pressed:
+        waha.logout_session()
+        st.session_state.clear()
+        st.rerun()
 
 
 def main():
@@ -373,10 +385,12 @@ def main():
                 ss = generate_res(ss_desc)
                 waha = render_waha_start()
 
-                if st.session_state.waha_initialized:
+                if st.session_state.waha_initialized and waha is not None:
                     send_messages(ss, waha)
                     render_audit_res(ss)
-                    terminate_waha(waha)
+                    
+                if st.session_state.messages_sent:
+                    terminate(waha)
 
 
 if __name__ == "__main__":
