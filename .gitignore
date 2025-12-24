@@ -2,3 +2,4 @@
 .env
 **/ignore
 results
+**/__pycache__
