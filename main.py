@@ -1,13 +1,8 @@
 import shutil
 import os
-import time
-import base64
-from multiprocessing import pool
 import datetime as dt
 import streamlit as st
 from src.secret_santa import SecretSanta
-from src.waha import Waha
-from dotenv import load_dotenv
 
 def initialize_states():
     if 'show_participants' not in st.session_state:
@@ -25,16 +20,12 @@ def initialize_states():
     if 'enable_res_generation' not in st.session_state:
         st.session_state.enable_res_generation = False
 
-    # if 'waha_initialized' not in st.session_state:
-    #     st.session_state.waha_initialized = False
-
 
 def render_header():
     st.write('# 🎅🏻 Secret Santa')
 
     ss_desc = st.text_input('Descreva o identificador do seu sorteio', value='Amigo Secreto')
     if ss_desc is None: ss_desc = 'Amigo Secreto'
-    ss_desc = ss_desc.title().strip().replace(' ', '')
 
     col1, col2 = st.columns([0.69, 0.31], vertical_alignment='bottom')
     num_participants = col1.number_input('Número de participantes', min_value=2)
@@ -69,7 +60,8 @@ def render_participants_form():
         )
 
     # Botão para gerar restrições
-    clicked_generate_restrictions = st.button('Gerar lista de restrições de sorteio', key='restriction_list')
+    clicked_generate_restrictions = st.button('Gerar lista de restrições de sorteio', key='restriction_list',
+                                                 use_container_width=True)
 
     return clicked_generate_restrictions
 
@@ -104,10 +96,16 @@ def render_restrictions_form():
 
     with st.expander('_Sumário das restrições_'):
         for p in st.session_state.restrictions.keys():
-            st.write(f'{p} não pode tirar {st.session_state.restrictions[p]}')
+            restrictions = st.session_state.restrictions[p]
+            if restrictions == []:
+                st.write(f'{p} não tem restrições')
+            else:
+                st.write(f'{p} não pode tirar {restrictions}')
+
 
     st.write('Se estiver tudo correto, clique abaixo para gerar os arquivos.')
-    clicked_generate_secret_santa = st.button('Finalizar sorteio', key='submit_secret_santa')
+    clicked_generate_secret_santa = st.button('Finalizar sorteio', key='submit_secret_santa',
+                                                 use_container_width=True)
 
     return clicked_generate_secret_santa
 
@@ -128,13 +126,17 @@ def generate_res(ss_desc):
     filename = f'/tmp/{ss_desc}-{ts}.zip'
     
     ss = SecretSanta(st.session_state.participants, st.session_state.restrictions, ss_desc)
-    with st.spinner('Gerando sorteio...'):
-        ss.generate_drawing()
-        ss.export_to_file(f'/tmp/{ss_desc}-{ts}/')  # Colocar timestamp para diferenciar...
-        shutil.make_archive(f'/tmp/{ss_desc}-{ts}', 'zip', f'/tmp/{ss_desc}-{ts}/')
-        shutil.rmtree(f'/tmp/{ss_desc}-{ts}/')
+    with st.spinner('🎲 Gerando sorteio...'):
+        try:
+            ss.generate_drawing()
+            ss.export_to_file(f'/tmp/{ss_desc}-{ts}/')  # Colocar timestamp para diferenciar...
+            shutil.make_archive(f'/tmp/{ss_desc}-{ts}', 'zip', f'/tmp/{ss_desc}-{ts}/')
+            shutil.rmtree(f'/tmp/{ss_desc}-{ts}/')
 
-    return filename
+            return filename
+
+        except TimeoutError:
+            st.error('Não foi possível gerar o sorteio em tempo hábil. É possível que exista uma restrição impossível de ser resolvida. Tente novamente.')
 
 
 def render_download(filename):
@@ -142,7 +144,7 @@ def render_download(filename):
 
     with open(filename, 'rb') as file:
         was_downloaded = st.download_button('Clique aqui para baixar os resultados', mime='application/zip', 
-                                            file_name=filename.split('/')[-1], data=file)
+                                               file_name=filename.split('/')[-1], data=file, use_container_width=True)
         
     if was_downloaded:
         os.remove(filename, 'rb')
@@ -175,7 +177,7 @@ def main():
 
             if st.session_state.enable_res_generation:
                 filename = generate_res(ss_desc)
-                render_download(filename)
+                if filename is not None: render_download(filename)
 
 
 if __name__ == '__main__':
