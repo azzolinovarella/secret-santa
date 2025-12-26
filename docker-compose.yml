@@ -1,0 +1,26 @@
+services:
+  streamlit:
+    build: .
+    container_name: streamlit-app
+    ports:
+      - "${STREAMLIT_SERVER_PORT}:8501"
+    networks:
+      - app-network
+    depends_on:
+      - waha
+    env_file:
+      - .env
+
+  waha:
+    image: devlikeapro/waha:latest
+    container_name: waha-api
+    networks:
+      - app-network
+    env_file:
+      - .env
+    # ports:  # Não vamos deixar o ports aqui porque não é necesário expor o waha para rede externa  
+      # - "3000:3000"
+
+networks:
+  app-network:
+    driver: bridge
