@@ -1,7 +1,6 @@
 import requests
 from typing import Any, Optional, Dict, Tuple
 
-
 class WAHA:
     def __init__(
         self,

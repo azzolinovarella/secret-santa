@@ -1,8 +1,8 @@
 import time
 import random
 from typing import List, Dict, Set
-from src.drawers.base import BaseDrawer
-from src.exceptions.draw_exceptions import DrawTimeoutException
+from .base import BaseDrawer
+from ..exceptions import DrawTimeoutException
 
 class LasVegasDrawer(BaseDrawer):
     def __init__(self, timeout: float = 30):

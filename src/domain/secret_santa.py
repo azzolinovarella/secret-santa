@@ -1,5 +1,5 @@
 from typing import Dict, List, Set
-from src.drawers.base import BaseDrawer
+from ..drawers import BaseDrawer
 
 class SecretSanta:
     def __init__(

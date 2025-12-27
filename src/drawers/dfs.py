@@ -1,7 +1,7 @@
 import random
 from typing import List, Dict, Set
-from src.drawers.base import BaseDrawer
-from src.exceptions.draw_exceptions import NoValidCycleException
+from .base import BaseDrawer
+from ..exceptions import NoValidCycleException
 
 class DFSDrawer(BaseDrawer):
     def _draw(self, participants: List[str], restrictions: Dict[str, Set[str]]) -> Dict[str, str]:

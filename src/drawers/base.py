@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import List, Dict, Set
-from src.exceptions.draw_exceptions import InvalidRestrictionsException
+from ..exceptions import InvalidRestrictionsException
 
 class BaseDrawer(ABC):
     def draw(self, participants: List[str], restrictions: Dict[str, Set[str]]) -> Dict[str, str]:
