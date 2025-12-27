@@ -2,7 +2,7 @@ import os
 import time
 import random
 from typing import Dict, List
-
+from random import shuffle
 
 class SecretSanta:
     def __init__(
@@ -71,7 +71,43 @@ class SecretSanta:
 
         return validated_restrictions
 
-    def generate_drawing(self, timeout: int = 30) -> Dict[str, str]:
+    def generate_drawing(self, algorithm: str = 'las_vegas', timeout: int = 30) -> Dict[str, str]:
+        match algorithm:
+            case 'las_vegas':
+                self._las_vegas(timeout)
+                return self._results
+            
+            case 'dfs':
+                path = list([])
+                unused = set({})
+
+                # Única heuristica para facilitar: começamos com o com mais restrições
+                possible_values_sorted = sorted(
+                    self._participants, 
+                    key=lambda p: -1 * len(self._restrictions[p])
+                )
+
+                path.append(possible_values_sorted[0])
+                unused.update(set(possible_values_sorted[1:]))
+
+                self._dfs(path, unused)
+                
+                results = {}
+                for idx in range(len(path)):
+                    if idx < len(path) - 1:
+                        results[path[idx]] = path[idx + 1]
+
+                    else:
+                        results[path[idx]] = path[0]
+
+                self._results = results
+                return self._results
+            
+            case _:
+                raise NotImplementedError('Escolha um dentre os dois algoritmos: "las_vegas" ou "dfs"')
+    
+
+    def _las_vegas(self, timeout: int = 30) -> Dict[str, str]:
         start_time = time.monotonic()
         results = {}
         while True:
@@ -100,7 +136,27 @@ class SecretSanta:
 
             if len(results) == len(self._participants):
                 self._results = results
-                return results
+                
+                return True
+            
+    def _dfs(self, path, unused):
+        if len(path) == len(self._participants):
+            return path[0] not in self._restrictions[path[-1]]
+        
+        next_candidates = [u for u in unused if u not in self._restrictions[path[-1]]]
+        shuffle(next_candidates)  # Para trazer aleatoriedade
+
+        for c in next_candidates:
+            path.append(c)
+            unused.remove(c)
+
+            if self._dfs(path, unused):
+                return True
+            
+            path.pop()
+            unused.add(c)
+
+        return False
 
     def is_drawn(self) -> bool:
         return self._results != {}
@@ -116,17 +172,3 @@ class SecretSanta:
             raise ValueError("Participante inexistente.")
 
         return res
-
-    def export_to_file(self, export_dir: str) -> None:
-        if not os.path.isdir(export_dir):
-            os.makedirs(export_dir)
-
-        for k, v in self._results.items():
-            with open(
-                f'{export_dir}/{k}-{self._description.replace(" ", "_")}.txt', "w"
-            ) as file:
-                file.write(
-                    f"===============================================================\n"
-                    f"{k}, você tirou o(a) {v} para {self._description}\n"
-                    f"==============================================================="
-                )
