@@ -1,5 +1,5 @@
 from .domain import SecretSanta
-from .drawers import DFSDrawer, LasVegasDrawer
+from .drawers import BaseDrawer, DFSDrawer, LasVegasDrawer
 from .integration import WAHA
 
-__all__ = ["SecretSanta", "DFSDrawer", "LasVegasDrawer", "WAHA"]
+__all__ = ["SecretSanta", "BaseDrawer", "DFSDrawer", "LasVegasDrawer", "WAHA"]
