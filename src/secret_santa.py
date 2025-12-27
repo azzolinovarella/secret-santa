@@ -1,19 +1,18 @@
-import os
-import time
-import random
-from typing import Dict, List
-from random import shuffle
+from typing import Dict, List, Set
+from src.drawers.base import BaseDrawer
 
 class SecretSanta:
     def __init__(
         self,
         participants: List[str],
-        restrictions: Dict[str, List[str]],
+        restrictions: Dict[str, Set[str]],
+        drawer: BaseDrawer,
         description: str = "Amigo Secreto",
     ) -> None:
-        self._participants = participants
-        self._restrictions = self._validate_restrictions(restrictions)
+        self._participants = participants.copy()
+        self._restrictions = {k: set(v) for k, v in restrictions.items()}  # Para fazer deep copy dos sets tb
         self._description = description
+        self._drawer = drawer
         self._results = {}
 
     def __repr__(self):
@@ -31,144 +30,24 @@ class SecretSanta:
         return s
 
     @property
-    def participants(self) -> List[str]:
-        return self._participants
-
-    @property
-    def restrictions(self) -> Dict[str, List[str]]:
-        return self._restrictions
-
-    @property
-    def description(self) -> str:
-        return self._description
-
-    @property
     def results(self) -> Dict[str, str]:
-        return self._results
-
-    def _validate_restrictions(self, restrictions: Dict[str, List[str]]):
-        validated_restrictions = {}
-
-        for p in self._participants:
-            r_list = restrictions.get(p)
-
-            if r_list is None:
-                raise ValueError(
-                    "Toda pessoa deve estar na lista de restrições, mesmo que não tenha nenhuma."
-                )
-
-            if not isinstance(r_list, list):
-                raise TypeError(f"As restrições de {p} devem ser uma lista.")
-
-            if not set(r_list).issubset(self._participants):
-                raise ValueError(
-                    f"Toda pessoa na lista de restrições de {p} deve ser um participante."
-                )
-
-            validated_restrictions[p] = list(
-                dict.fromkeys(r_list + [p])
-            )  # Por padrão p não pode tirar p
-
-        return validated_restrictions
-
-    def generate_drawing(self, algorithm: str = 'las_vegas', timeout: int = 30) -> Dict[str, str]:
-        match algorithm:
-            case 'las_vegas':
-                self._las_vegas(timeout)
-                return self._results
-            
-            case 'dfs':
-                path = list([])
-                unused = set({})
-
-                # Única heuristica para facilitar: começamos com o com mais restrições
-                possible_values_sorted = sorted(
-                    self._participants, 
-                    key=lambda p: -1 * len(self._restrictions[p])
-                )
-
-                path.append(possible_values_sorted[0])
-                unused.update(set(possible_values_sorted[1:]))
-
-                self._dfs(path, unused)
-                
-                results = {}
-                for idx in range(len(path)):
-                    if idx < len(path) - 1:
-                        results[path[idx]] = path[idx + 1]
-
-                    else:
-                        results[path[idx]] = path[0]
-
-                self._results = results
-                return self._results
-            
-            case _:
-                raise NotImplementedError('Escolha um dentre os dois algoritmos: "las_vegas" ou "dfs"')
+        return self._results.copy()  # Para garantir que o usuário não acesse o valor diretamente
     
+    def draw(self, redraw: bool = False) -> Dict[str, str]:
+        if self.is_drawn() and not redraw:
+            return self.results
 
-    def _las_vegas(self, timeout: int = 30) -> Dict[str, str]:
-        start_time = time.monotonic()
-        results = {}
-        while True:
-            if time.monotonic() - start_time > timeout:
-                raise TimeoutError(
-                    "Sorteio não convergiu dentro do tempo limite. "
-                    "Isto pode ter acontecido por haver uma restrição impossível."
-                )
-
-            participants_list = self._participants.copy()
-            available_users = participants_list.copy()
-            random.shuffle(participants_list)
-
-            results = {}
-            for participant in participants_list:
-                possible_users = set(available_users) - set(
-                    self._restrictions[participant]
-                )
-
-                if not possible_users:  # Não há mais usuários a serem sorteados
-                    break
-
-                chosen = random.choice(list(possible_users))
-                results[participant] = chosen
-                available_users.remove(chosen)
-
-            if len(results) == len(self._participants):
-                self._results = results
-                
-                return True
-            
-    def _dfs(self, path, unused):
-        if len(path) == len(self._participants):
-            return path[0] not in self._restrictions[path[-1]]
-        
-        next_candidates = [u for u in unused if u not in self._restrictions[path[-1]]]
-        shuffle(next_candidates)  # Para trazer aleatoriedade
-
-        for c in next_candidates:
-            path.append(c)
-            unused.remove(c)
-
-            if self._dfs(path, unused):
-                return True
-            
-            path.pop()
-            unused.add(c)
-
-        return False
+        self._results = self._drawer.draw(self._participants, self._restrictions)
+        return self.results
 
     def is_drawn(self) -> bool:
-        return self._results != {}
+        return bool(self._results)
 
     def get_result(self, participant: str) -> str:
         if not self.is_drawn():
-            raise ValueError(
-                "Sorteio ainda não realizado. Execute o método generate_drawing antes de chamar este método."
-            )
+            raise ValueError("Sorteio ainda não realizado. Execute o método generate_drawing antes de chamar este método.")
 
-        res = self._results.get(participant)
-        if res is None:
-            raise ValueError("Participante inexistente.")
-
-        return res
+        try:
+            return self._results[participant]
+        except KeyError:
+            raise ValueError(f"Participante '{participant}' não encontrado.")
