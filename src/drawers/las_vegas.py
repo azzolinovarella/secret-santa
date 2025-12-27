@@ -2,6 +2,7 @@ import time
 import random
 from typing import List, Dict, Set
 from src.drawers.base import BaseDrawer
+from src.exceptions.draw_exceptions import DrawTimeoutException
 
 class LasVegasDrawer(BaseDrawer):
     def __init__(self, timeout: float = 30):
@@ -13,7 +14,7 @@ class LasVegasDrawer(BaseDrawer):
         start_time = time.monotonic()
         while True:
             if time.monotonic() - start_time > self._timeout:
-                raise TimeoutError("Sorteio não convergiu dentro do tempo limite. As restrições podem ser impossíveis de satisfazer.")
+                raise DrawTimeoutException("Sorteio não convergiu dentro do tempo limite. As restrições podem ser impossíveis de satisfazer.")
 
             participants_list = sorted(participants,  # Heuristica para começarmos pelo mais restritivo 
                                        key=lambda p: (len(restrictions[p]), random.random()),  # Em caso de empate, faz sorteio aleatório

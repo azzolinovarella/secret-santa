@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import List, Dict, Set
+from src.exceptions.draw_exceptions import InvalidRestrictionsException
 
 class BaseDrawer(ABC):
     def draw(self, participants: List[str], restrictions: Dict[str, Set[str]]) -> Dict[str, str]:
@@ -10,7 +11,7 @@ class BaseDrawer(ABC):
         participants_set = set(participants)
         missing = participants_set - restrictions.keys()
         if missing:
-            raise ValueError(f"Participantes sem restrições definidas: {', '.join(missing)}")
+            raise InvalidRestrictionsException(f"Participantes sem restrições definidas: {', '.join(missing)}")
 
         for p in participants:
             r = restrictions[p]
@@ -19,14 +20,14 @@ class BaseDrawer(ABC):
                 raise TypeError(f"As restrições de '{p}' devem ser do tipo set.")
 
             if p not in r:
-                raise ValueError(f"'{p}' deve estar em sua própria lista de restrições.")
+                raise InvalidRestrictionsException(f"'{p}' deve estar em sua própria lista de restrições.")
 
             invalid = r - participants_set
             if invalid:
-                raise ValueError(f"Restrições inválidas para '{p}': {', '.join(invalid)} não existe(m) nos participantes.")
+                raise InvalidRestrictionsException(f"Restrições inválidas para '{p}': {', '.join(invalid)} não existe(m) nos participantes.")
 
             if participants_set - r == set():
-                raise ValueError(f"'{p}' não pode tirar ninguém (restrições impossíveis).")
+                raise InvalidRestrictionsException(f"'{p}' não pode tirar ninguém (restrições impossíveis).")
 
     @abstractmethod
     def _draw(self, participants: List[str], restrictions: Dict[str, Set[str]]) -> Dict[str, str]:

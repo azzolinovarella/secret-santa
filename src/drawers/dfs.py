@@ -1,6 +1,7 @@
 import random
 from typing import List, Dict, Set
 from src.drawers.base import BaseDrawer
+from src.exceptions.draw_exceptions import NoValidCycleException
 
 class DFSDrawer(BaseDrawer):
     def _draw(self, participants: List[str], restrictions: Dict[str, Set[str]]) -> Dict[str, str]:
@@ -13,7 +14,7 @@ class DFSDrawer(BaseDrawer):
             results = self._get_results_from_path(path)
             return results
 
-        raise RuntimeError("Não é possível realizar o sorteio garantindo ciclicidade.")
+        raise NoValidCycleException("Não é possível realizar o sorteio garantindo ciclicidade.")
 
     def _dfs(self, path: List[str], unused: Set[str], restrictions: Dict[str, Set[str]], n: int):
         if len(path) == n:
