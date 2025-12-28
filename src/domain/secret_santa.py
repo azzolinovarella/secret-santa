@@ -30,6 +30,14 @@ class SecretSanta:
         return s
 
     @property
+    def participants(self) -> List[str]:
+        return self._participants.copy()  # Para garantir que o usuário não acesse o valor diretamente
+
+    @property
+    def restrictions(self) -> Dict[str, Set[str]]:
+        return {k: set(v) for k, v in self._restrictions.items()}  # Para fazer deep copy dos sets tb  # Para garantir que o usuário não acesse o valor diretamente
+
+    @property
     def results(self) -> Dict[str, str]:
         return self._results.copy()  # Para garantir que o usuário não acesse o valor diretamente
     

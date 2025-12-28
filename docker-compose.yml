@@ -18,8 +18,8 @@ services:
       - app-network
     env_file:
       - .env
-    # ports:  # Não vamos deixar o ports aqui porque não é necesário expor o waha para rede externa  
-      # - "3000:3000"
+    ports:  # Não vamos deixar o ports aqui porque não é necesário expor o waha para rede externa  
+      - "3000:3000"
 
 networks:
   app-network:

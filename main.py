@@ -4,9 +4,7 @@ import base64
 import streamlit as st
 from typing import Any, Optional, Dict, Tuple
 from dotenv import load_dotenv
-from src.secret_santa import SecretSanta
-from src.waha import WAHA
-
+from src import SecretSanta, BaseDrawer, DFSDrawer, LasVegasDrawer, WAHA
 
 def initialize_states():
     if "show_participants" not in st.session_state:
@@ -20,6 +18,9 @@ def initialize_states():
 
     if "restrictions" not in st.session_state:
         st.session_state.restrictions = {}
+
+    if "drawer" not in st.session_state:
+        st.session_state.drawer = None
 
     if "enable_res_generation" not in st.session_state:
         st.session_state.enable_res_generation = False
@@ -118,9 +119,7 @@ def handle_participants_form():
         return
 
     st.session_state.show_restrictions = True
-    if (
-        "restrictions" not in st.session_state
-    ):  # Inicializa dicionário das restrições (apenas 1 vez)
+    if ("restrictions" not in st.session_state):  # Inicializa dicionário das restrições (apenas 1 vez)
         st.session_state.restrictions = {
             p["name"]: [] for p in st.session_state.participants
         }
@@ -153,6 +152,9 @@ def render_restrictions_form() -> bool:
             else:
                 st.write(f"{p} não pode tirar {restrictions}")
 
+    st.session_state.drawer = st.selectbox("Selecione a forma de sorteio", 
+                                           options=["Algoritmo de Las Vegas", "DFS"])
+
     st.write("Se estiver tudo correto, clique abaixo para gerar os arquivos.")
     clicked_generate_secret_santa = st.button(
         "Finalizar sorteio", key="submit_secret_santa", use_container_width=True
@@ -177,13 +179,26 @@ def handle_restrictions_form():
         )
 
 
-def generate_res(ss_desc: str) -> Optional[SecretSanta]:
-    participants = [p["name"] for p in st.session_state.participants]
+def get_drawer():
+    match st.session_state.drawer:
+        case "Algoritmo de Las Vegas":
+            return LasVegasDrawer()
+        
+        case "DFS":
+            return DFSDrawer()
+        
+        case _:
+            raise NotImplementedError("O algoritmo de sorteio deve ser um dentre Las Vegas e DFS.")
 
-    ss = SecretSanta(participants, st.session_state.restrictions, ss_desc)
+
+def generate_res(drawer: BaseDrawer, ss_desc: str) -> Optional[SecretSanta]:
+    participants = [p["name"] for p in st.session_state.participants]
+    restrictions = {p: set(r) | {p} for p, r in st.session_state.restrictions.items()}
+
+    ss = SecretSanta(participants, restrictions, drawer, description=ss_desc)
     with st.spinner("🎲 Gerando sorteio..."):
         try:
-            ss.generate_drawing()
+            _ = ss.draw()
             st.success("✅ Sorteio finalizado com sucesso!")
             return ss
 
@@ -287,7 +302,7 @@ def wait_authentication(waha: WAHA, timeout: int = 120):
         status = session_status_content.get("status", "SCAN_QR_CODE")
 
 
-def send_messages(ss: SecretSanta, waha: WAHA, max_retries: int = 3):
+def send_messages(ss: SecretSanta, waha: WAHA, description: str, max_retries: int = 3):
     with st.spinner('📩 Enviando resultados...'):
         for p in st.session_state.participants:
             name = p["name"]
@@ -295,7 +310,7 @@ def send_messages(ss: SecretSanta, waha: WAHA, max_retries: int = 3):
 
             result = ss.get_result(name)
 
-            msg = format_secret_santa_message(name, result, ss.description)
+            msg = format_secret_santa_message(name, result, description)
             success = False
 
             for attempt in range(max_retries + 1):
@@ -333,7 +348,8 @@ def render_audit_res(ss: SecretSanta):
     b64_general_res = base64.b64encode(repr(ss).encode()).decode()
     b64_participants_res = {}
 
-    for p in ss.participants:
+    participants = [p["name"] for p in st.session_state.participants]
+    for p in participants:
         p_res = ss.get_result(p)
         base_msg = f"{p}, você tirou {p_res} no sorteio."
         b64_p_res = base64.b64encode(base_msg.encode()).decode()
@@ -388,11 +404,12 @@ def main():
 
             if st.session_state.enable_res_generation:
                 # Se for para enviar os resultados via WhatsApp (descontinuado formato de arquivos)
-                ss = generate_res(ss_desc)
+                drawer = get_drawer()
+                ss = generate_res(drawer, ss_desc)
                 waha = render_waha_start()
 
                 if st.session_state.waha_initialized and waha is not None:
-                    send_messages(ss, waha)
+                    send_messages(ss, waha, ss_desc)
                     render_audit_res(ss)
                     
                 if st.session_state.messages_sent:
