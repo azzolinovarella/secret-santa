@@ -4,36 +4,94 @@ import base64
 import streamlit as st
 from typing import Any, Optional, Dict, Tuple
 from dotenv import load_dotenv
-from src.secret_santa import SecretSanta
-from src.waha import WAHA
-
+from src import SecretSanta, BaseDrawer, DFSDrawer, LasVegasDrawer, WAHA
 
 def initialize_states():
-    if "show_participants" not in st.session_state:
-        st.session_state.show_participants = False
+    defaults = {
+        # Variáveis
+        "participants": [],
+        "restrictions": {},
+        "selected_algorithm": None,
+        "description": None,
+        # Para controle de fluxo
+        "show_participants": False,
+        "show_restrictions": False,
+        "enable_res_generation": False,
+        "messages_sent": False,
+        # Objetos
+        # "waha": None,  # Instanciado depois
+        "drawer": None,
+        "secret_santa": None
+    }
 
-    if "show_restrictions" not in st.session_state:
-        st.session_state.show_restrictions = False
+    for key, value in defaults.items():
+        if key not in st.session_state:
+            st.session_state[key] = value
 
-    if "participants" not in st.session_state:
-        st.session_state.participants = []
-
-    if "restrictions" not in st.session_state:
-        st.session_state.restrictions = {}
-
-    if "enable_res_generation" not in st.session_state:
-        st.session_state.enable_res_generation = False
-
-    if "waha_initialized" not in st.session_state:
-        st.session_state.waha_initialized = False
-
-    if "messages_sent" not in st.session_state:
-        st.session_state.messages_sent = False
+    # Objetos complexos (objeto já instanciado com alguns valores padrão)
+    if "waha" not in st.session_state:
+        set_waha()
 
 
-def render_header() -> Tuple[int, bool, str]:
+def set_waha():
+    waha = WAHA(
+        session_name="default",
+        host="waha",  # Vide docker-compose
+        api_port=os.environ.get("WHATSAPP_API_PORT"),
+        api_key=os.environ.get("WAHA_API_KEY"),
+    )
+    waha.start_session()
+    st.session_state.waha = waha
+
+
+def get_waha() -> WAHA:
+    return st.session_state.waha
+        
+
+def get_available_algorithms() -> Dict[str, BaseDrawer]:
+    return {
+        "Algoritmo de Las Vegas": LasVegasDrawer(),
+        "Algoritmo DFS": DFSDrawer()
+    }
+
+
+def set_drawer(drawer_alias: str):
+    available_algoritms = get_available_algorithms()
+    try:
+        drawer = available_algoritms[drawer_alias]
+    except KeyError:
+        raise NotImplementedError("O algoritmo de sorteio deve ser um dentre Las Vegas e DFS.") 
+
+    st.session_state.drawer = drawer   
+
+
+def get_drawer() -> BaseDrawer:
+    return st.session_state.drawer
+
+
+def get_secret_santa(): 
+    return st.session_state.secret_santa
+
+
+def waha_is_working() -> bool:
+    try:
+        waha = get_waha()
+        code, content = waha.get_session_status()
+        return code == 200 and content.get("status") == "WORKING"
+    except Exception:
+        return False
+
+
+def render_header():
     st.write("# 🎅🏻 Secret Santa")
 
+
+def render_waha_error():
+    st.error("Serviço do WAHA (WhatsApp) não está funcionando, não foi inicializado corretamente ou ainda está sendo inicializado. " \
+             "Inicialize o serviço novamente e reinicie a página quando isso foi realizado.")
+
+
+def render_participants_num_form() -> Tuple[int, bool, str]:
     ss_desc = st.text_input(
         "Descreva o identificador do seu sorteio", value="Amigo Secreto"
     )
@@ -47,7 +105,7 @@ def render_header() -> Tuple[int, bool, str]:
     return num_participants, clicked_generate_list, ss_desc
 
 
-def handle_header(num_participants: int):
+def handle_participants_num_form(num_participants: int, description: str):
     st.session_state.show_participants = True
     st.session_state.show_restrictions = (
         False  # Reseta para garantir que vai sumir com o menu para nova geração
@@ -56,6 +114,7 @@ def handle_header(num_participants: int):
     st.session_state.participants = [""] * st.session_state.num_participants
     del st.session_state.restrictions
     st.session_state.enable_res_generation = False
+    st.session_state.description = description
 
 
 def render_participants_form() -> bool:
@@ -75,12 +134,12 @@ def render_participants_form() -> bool:
         )
         participant_phone = col2.text_input(
             f"Insira o telefone do participante {i + 1}",
-            placeholder="551140028922",
+            placeholder="55 11 4002 8922",
             key=f"participant_phone_{i}",
         )
 
         participant_name = participant_name.strip()
-        participant_phone = participant_phone.replace(" ", "").replace("-", "").replace("+", "")
+        participant_phone = participant_phone.replace(" ", "").replace("-", "").replace("+", "").replace("(", "").replace(")", "")
 
         st.session_state.participants[i] = {  # TODO: Melhor forma de fazer isso?
             "name": participant_name,
@@ -118,15 +177,13 @@ def handle_participants_form():
         return
 
     st.session_state.show_restrictions = True
-    if (
-        "restrictions" not in st.session_state
-    ):  # Inicializa dicionário das restrições (apenas 1 vez)
+    if ("restrictions" not in st.session_state):  # Inicializa dicionário das restrições (apenas 1 vez)
         st.session_state.restrictions = {
             p["name"]: [] for p in st.session_state.participants
         }
 
 
-def render_restrictions_form() -> bool:
+def render_restrictions_form():
     st.write("## ❌ Lista de restrições")
     st.info(
         "Informe quais pessoas o referido participante **NÃO** pode tirar (além dele próprio)."
@@ -153,7 +210,30 @@ def render_restrictions_form() -> bool:
             else:
                 st.write(f"{p} não pode tirar {restrictions}")
 
-    st.write("Se estiver tudo correto, clique abaixo para gerar os arquivos.")
+
+def render_algorithm_selection_form():
+    st.write("## 👨🏻‍💻 Seleção do algoritmo")
+    
+    with st.expander("_Qual algoritmo escolher? Clique aqui para saber mais_"):
+        st.write('**Algoritmo de Las Vegas**: Imagine que você está fazendo um sorteio, colocando os ' \
+                 'nomes em um chapéu e tirando um de cada vez. Você tenta atribuir cada participante ' \
+                 'a alguém aleatoriamente, mas se alguém ficar sem opções válidas, você joga tudo de ' \
+                 'volta e sorteia de novo. O Las Vegas é como um jogo de “tente até dar certo”: ele ' \
+                 'sempre encontra uma solução correta, mas pode demorar se a sorte não ajudar.')
+        
+        st.write("**Algoritmo DFS (_Depth-First Search_)**: Agora imagine que você está planejando o " \
+                 "sorteio como um labirinto. Você começa com o primeiro participante e segue escolhendo " \
+                 "quem ele vai tirar. Cada pessoa pega alguém que ainda não foi escolhida e você continua " \
+                 "assim, passo a passo, até que todos tenham alguém. No final, forma-se um ciclo: cada " \
+                 "participante está ligado ao próximo em sequência até voltar ao primeiro, sem ter quebra "
+                 "na dinâmica.")
+    
+    available_algorithms = get_available_algorithms()
+    st.session_state.selected_algorithm = st.selectbox("Selecione o algoritmo para sorteio", 
+                                           options=available_algorithms.keys())
+    
+
+    st.write("Se estiver tudo correto, clique abaixo para realizar o sorteio.")
     clicked_generate_secret_santa = st.button(
         "Finalizar sorteio", key="submit_secret_santa", use_container_width=True
     )
@@ -176,118 +256,38 @@ def handle_restrictions_form():
             "Para avançar é necessário que o usuário possa tirar pelo menos uma pessoa."
         )
 
+def handle_algorithm_selection_form():
+    set_drawer(st.session_state.selected_algorithm)
 
-def generate_res(ss_desc: str) -> Optional[SecretSanta]:
+
+def generate_res():
     participants = [p["name"] for p in st.session_state.participants]
+    restrictions = {p: set(r) | {p} for p, r in st.session_state.restrictions.items()}
 
-    ss = SecretSanta(participants, st.session_state.restrictions, ss_desc)
+    ss = SecretSanta(participants, restrictions, drawer=st.session_state.drawer, description=st.session_state.description)
     with st.spinner("🎲 Gerando sorteio..."):
         try:
-            ss.generate_drawing()
+            _ = ss.draw()
+            st.session_state.secret_santa = ss
             st.success("✅ Sorteio finalizado com sucesso!")
-            return ss
 
         except TimeoutError:
             st.error(
                 "Não foi possível gerar o sorteio em tempo hábil. É possível que exista uma restrição impossível de ser resolvida. Tente novamente."
             )
-    
 
-def render_waha_start() -> WAHA:
-    waha = WAHA(
-        session_name="default",
-        host="waha",  # Vide docker-compose
-        api_port=os.environ.get("WHATSAPP_API_PORT"),
-        api_key=os.environ.get("WAHA_API_KEY"),
-    )
-
-    start_waha_placeholder = st.empty()
-    start_waha = start_waha_placeholder.button(
-        "Clique aqui para inicializar o serviço WhatsApp e enviar os resultados",
+def render_send_messages() -> WAHA:
+    send_messages_clicked = st.button(
+        "Clique aqui para enviar os resultados via WhatsApp",
         use_container_width=True,
     )
-    if start_waha:
-        with st.spinner("⚙️ Inciando serviço no WhatsApp..."):
-            text_placeholder = st.empty()
-            _, center, _ = st.columns([0.2, 0.6, 0.2])
-            img_placeholder = center.empty()
 
-            try:
-                initialize_waha(waha)
-            except TimeoutError as e:
-                waha.logout_session()
-                st.warning(str(e))
-                return
+    return send_messages_clicked
 
-            qr_data_bytes = get_qr_code_bytes(waha)
+def send_messages(max_retries: int = 3):
+    ss = get_secret_santa()
+    waha = get_waha()
 
-        text_placeholder.write(
-            "⏳ Escaneie a imagem abaixo no WhatsApp para continuar..."
-        )
-        img_placeholder.image(qr_data_bytes, width="stretch")
-
-        try:
-            wait_authentication(waha)
-        except TimeoutError as e:
-            waha.logout_session()
-            st.warning(str(e))
-            return
-
-        text_placeholder.empty()
-        img_placeholder.empty()
-        start_waha_placeholder.empty()
-        st.session_state.waha_initialized = True
-
-        return waha
-
-
-def initialize_waha(waha: WAHA, timeout: int = 120):
-    try:
-        waha.logout_session()
-    except Exception:
-        pass
-
-    waha.create_session()
-    waha.start_session()
-    _, session_status_content = waha.get_session_status()
-
-    status = session_status_content.get("status", "STARTING")
-    start_time = time.monotonic()
-    while status != "SCAN_QR_CODE":
-        if time.monotonic() - start_time > timeout:
-            raise TimeoutError(
-                f"Execução durou mais do que o esperado! Necessário reiniciar o processo."
-            )
-
-        time.sleep(1)
-        _, session_status_content = waha.get_session_status()
-        status = session_status_content.get("status", "STARTING")
-
-
-def get_qr_code_bytes(waha: WAHA) -> bytes:
-    _, auth_content = waha.authenticate()
-
-    qr_data = auth_content.get("data")
-    return base64.b64decode(qr_data)
-
-
-def wait_authentication(waha: WAHA, timeout: int = 120):
-    _, session_status_content = waha.get_session_status()
-    status = session_status_content.get("status", "SCAN_QR_CODE")
-
-    start_time = time.monotonic()
-    while status != "WORKING":
-        if time.monotonic() - start_time > timeout:
-            raise TimeoutError(
-                f"Autenticação demorou mais do que esperado! Necessário reiniciar o processo."
-            )
-
-        time.sleep(1)
-        _, session_status_content = waha.get_session_status()
-        status = session_status_content.get("status", "SCAN_QR_CODE")
-
-
-def send_messages(ss: SecretSanta, waha: WAHA, max_retries: int = 3):
     with st.spinner('📩 Enviando resultados...'):
         for p in st.session_state.participants:
             name = p["name"]
@@ -295,7 +295,7 @@ def send_messages(ss: SecretSanta, waha: WAHA, max_retries: int = 3):
 
             result = ss.get_result(name)
 
-            msg = format_secret_santa_message(name, result, ss.description)
+            msg = format_secret_santa_message(name, result, st.session_state.description)
             success = False
 
             for attempt in range(max_retries + 1):
@@ -310,7 +310,7 @@ def send_messages(ss: SecretSanta, waha: WAHA, max_retries: int = 3):
             if not success:
                 masked = base64.b64encode(msg.encode()).decode()
                 st.error(
-                    f"Houve um erro ao enviar a mensagem para {name} ({phone}).<br>"
+                    f"Houve um erro ao enviar a mensagem para {name} ({phone}).\n\n"
                     f"**Resultado mascarado**: {masked}"
                 )
 
@@ -329,11 +329,13 @@ def format_secret_santa_message(
     )
 
 
-def render_audit_res(ss: SecretSanta):
+def render_audit_res():
+    ss = get_secret_santa()
     b64_general_res = base64.b64encode(repr(ss).encode()).decode()
     b64_participants_res = {}
 
-    for p in ss.participants:
+    participants = [p["name"] for p in st.session_state.participants]
+    for p in participants:
         p_res = ss.get_result(p)
         base_msg = f"{p}, você tirou {p_res} no sorteio."
         b64_p_res = base64.b64encode(base_msg.encode()).decode()
@@ -365,39 +367,38 @@ def main():
     # Inicializa estados (necessário para poder trabalhar com múltiplos botoões)
     initialize_states()
 
-    # Entrada de número de participantes
-    num_participants, clicked_generate_list, ss_desc = render_header()
+    render_header()
+    if waha_is_working():
+        # Entrada de número de participantes
+        num_participants, clicked_generate_list, ss_desc = render_participants_num_form()
 
-    # Quando clicar no primeiro botão
-    if clicked_generate_list:
-        handle_header(num_participants)
+        # Quando clicar no primeiro botão
+        if clicked_generate_list:
+            handle_participants_num_form(num_participants, ss_desc)
 
-    # Se deve mostrar os campos de participante
-    if st.session_state.show_participants:
-        clicked_generate_restrictions = render_participants_form()
+        # Se deve mostrar os campos de participante
+        if st.session_state.show_participants:
+            clicked_generate_restrictions = render_participants_form()
 
-        if clicked_generate_restrictions:
-            handle_participants_form()
+            if clicked_generate_restrictions:
+                handle_participants_form()
 
-        #  Mostrar tela de restrições (fora do botão)
-        if st.session_state.show_restrictions:
-            clicked_generate_secret_santa = render_restrictions_form()
+            #  Mostrar tela de restrições (fora do botão)
+            if st.session_state.show_restrictions:
+                render_restrictions_form()
+                clicked_generate_secret_santa = render_algorithm_selection_form()
 
-            if clicked_generate_secret_santa:
-                handle_restrictions_form()
+                if clicked_generate_secret_santa:
+                    handle_restrictions_form()
+                    handle_algorithm_selection_form()
 
             if st.session_state.enable_res_generation:
-                # Se for para enviar os resultados via WhatsApp (descontinuado formato de arquivos)
-                ss = generate_res(ss_desc)
-                waha = render_waha_start()
-
-                if st.session_state.waha_initialized and waha is not None:
-                    send_messages(ss, waha)
-                    render_audit_res(ss)
+                generate_res()
+                send_messages()               
+                render_audit_res()
                     
-                if st.session_state.messages_sent:
-                    terminate(waha)
-
+    else:
+        render_waha_error()
 
 if __name__ == "__main__":
     load_dotenv()

@@ -15,6 +15,9 @@ up-d:
 up-build:
 	docker compose up -d --build
 
+start:
+	docker compose start
+
 down:
 	docker compose down
 

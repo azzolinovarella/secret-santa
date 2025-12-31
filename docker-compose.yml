@@ -10,16 +10,24 @@ services:
       - waha
     env_file:
       - .env
+    volumes:  # DESCOMENTAR APENAS PARA DEBUG! Evitar ter que ficar dando rebuild
+      - .:/app
 
   waha:
     image: devlikeapro/waha:latest
     container_name: waha-api
+    ports:
+      - "127.0.0.1:3000:3000"  # Acessível apenas pela máquina que hospeda o serviço
     networks:
       - app-network
     env_file:
       - .env
-    # ports:  # Não vamos deixar o ports aqui porque não é necesário expor o waha para rede externa  
-      # - "3000:3000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
 
 networks:
   app-network:
