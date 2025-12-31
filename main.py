@@ -5,6 +5,7 @@ import streamlit as st
 from typing import Any, Optional, Dict, Tuple
 from dotenv import load_dotenv
 from src import SecretSanta, BaseDrawer, DFSDrawer, LasVegasDrawer, WAHA
+from src.app.flow import run_app
 
 def initialize_states():
     defaults = {
@@ -34,13 +35,24 @@ def initialize_states():
 
 
 def set_waha():
+    if "waha" in st.session_state:  # Para evitar múltiplas instâncias do WAHA em cada rerun
+        return 
+    
     waha = WAHA(
         session_name="default",
         host="waha",  # Vide docker-compose
         api_port=os.environ.get("WHATSAPP_API_PORT"),
         api_key=os.environ.get("WAHA_API_KEY"),
     )
-    waha.start_session()
+
+    try:
+        code, content = waha.get_session_status()
+        if code == 200 and content.get("status") == "STOPPED":
+            waha.start_session()
+    except Exception:
+        # WAHA ainda não está pronto, evita quebrar o app
+        pass
+
     st.session_state.waha = waha
 
 
@@ -56,6 +68,7 @@ def get_available_algorithms() -> Dict[str, BaseDrawer]:
 
 
 def set_drawer(drawer_alias: str):
+    # Aqui não colocamos o if drawer in st.session_state porque o usuário pode mudar o algoritmo
     available_algoritms = get_available_algorithms()
     try:
         drawer = available_algoritms[drawer_alias]
@@ -69,7 +82,7 @@ def get_drawer() -> BaseDrawer:
     return st.session_state.drawer
 
 
-def get_secret_santa(): 
+def get_secret_santa() -> SecretSanta: 
     return st.session_state.secret_santa
 
 
@@ -401,5 +414,6 @@ def main():
         render_waha_error()
 
 if __name__ == "__main__":
-    load_dotenv()
-    main()
+    # load_dotenv()
+    # main()
+    run_app()
