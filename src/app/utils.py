@@ -4,10 +4,11 @@ import string
 import base64
 import phonenumbers
 import hashlib
-from cryptography.fernet import Fernet
 import streamlit.components.v1 as components
-from typing import Dict, List
-from src import WAHA, SecretSanta, BaseDrawer, DFSDrawer, LasVegasDrawer
+from cryptography.fernet import Fernet
+from typing import Dict
+from src.drawers import BaseDrawer, DFSDrawer, LasVegasDrawer
+from src.integration import WAHA
 
 
 def waha_is_working(waha: WAHA) -> bool:
@@ -19,10 +20,7 @@ def waha_is_working(waha: WAHA) -> bool:
 
 
 def get_available_algorithms() -> Dict[str, BaseDrawer]:
-    return {
-        "Algoritmo de Las Vegas": LasVegasDrawer(),
-        "Algoritmo DFS": DFSDrawer()
-    }
+    return {"Algoritmo de Las Vegas": LasVegasDrawer(), "Algoritmo DFS": DFSDrawer()}
 
 
 def validate_name(name: str) -> bool:
@@ -38,10 +36,10 @@ def validate_phone(phone: str) -> bool:
     try:
         if not phone.startswith("+"):
             phone = "+" + phone
-        
+
         parsed_number = phonenumbers.parse(phone)
         return phonenumbers.is_valid_number(parsed_number)
-    
+
     except phonenumbers.NumberParseException:
         return False
 
@@ -51,7 +49,9 @@ def format_phone(phone: str) -> bool:
         phone = "+" + phone
 
     parsed_number = phonenumbers.parse(phone)
-    formated_number = phonenumbers.format_number(parsed_number, phonenumbers.PhoneNumberFormat.INTERNATIONAL)
+    formated_number = phonenumbers.format_number(
+        parsed_number, phonenumbers.PhoneNumberFormat.INTERNATIONAL
+    )
     return formated_number
 
 
@@ -84,7 +84,7 @@ def decrypt_result(token: str, seed: str) -> str:
 
 
 def generate_random_seed(length: int = 30) -> str:
-    return ''.join(random.choices(string.ascii_letters + string.digits, k=length))
+    return "".join(random.choices(string.ascii_letters + string.digits, k=length))
 
 
 def scroll_to_top():  # TODO: Melhor lugar para colocar?

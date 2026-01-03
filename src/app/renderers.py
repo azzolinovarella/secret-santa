@@ -1,6 +1,6 @@
 from typing import List, Dict, Callable
-from .utils import get_available_algorithms
 import streamlit as st
+from src.app.utils import get_available_algorithms
 
 
 def render_header():
@@ -8,8 +8,10 @@ def render_header():
 
 
 def render_waha_error():
-    st.error("Serviço do WAHA (WhatsApp) não está funcionando, não foi inicializado corretamente ou ainda está sendo inicializado. " \
-             "Inicialize o serviço novamente e reinicie a página quando isso foi realizado.")
+    st.error(
+        "Serviço do WAHA (WhatsApp) não está funcionando, não foi inicializado corretamente ou ainda está sendo inicializado. "
+        "Inicialize o serviço novamente e reinicie a página quando isso foi realizado."
+    )
 
 
 def render_participants_num_form(on_click: Callable):
@@ -20,24 +22,22 @@ def render_participants_num_form(on_click: Callable):
         value="Amigo Secreto",
         key="draft.secret_santa.description",  # Draft porque não é o definitivo (definitivo controlado no flow)
     )
-    
+
     st.number_input(
         "Número de participantes",
         min_value=2,
         key="draft.secret_santa.num_participants",
     )
 
-    st.button(
-        "Avançar",
-        use_container_width=True,
-        on_click=on_click
-    )
+    st.button("Avançar", use_container_width=True, on_click=on_click)
 
 
-def render_participants_dict_form(num_participants: int, on_return: Callable, on_advance: Callable):
+def render_participants_dict_form(
+    num_participants: int, on_return: Callable, on_advance: Callable
+):
     st.write("## 👥 Participantes")
     st.info(
-        "Informe o nome de cada participante do sorteio. " \
+        "Informe o nome de cada participante do sorteio. "
         "Se houver pessoas com o mesmo nome, inclua o sobrenome."
     )
 
@@ -59,7 +59,9 @@ def render_participants_dict_form(num_participants: int, on_return: Callable, on
     render_return_advance_buttons(on_return, on_advance)
 
 
-def render_restrictions_form(participants_name: List[str], on_return: Callable, on_advance: Callable):
+def render_restrictions_form(
+    participants_name: List[str], on_return: Callable, on_advance: Callable
+):
     st.write("## ❌ Restrições")
     st.info(
         "Informe quais pessoas o referido participante **NÃO** pode tirar (além dele próprio)."
@@ -73,7 +75,7 @@ def render_restrictions_form(participants_name: List[str], on_return: Callable, 
             options=options,
             key=f"draft.restrictions.{name}",
         )
-    
+
     render_return_advance_buttons(on_return, on_advance)
 
 
@@ -102,7 +104,7 @@ def render_algorithm_selection_form(on_return: Callable, on_advance: Callable):
             "participante está ligado ao próximo em sequência até voltar ao primeiro, sem ter quebra "
             "na dinâmica."
         )
-    
+
     render_return_advance_buttons(on_return, on_advance)
 
 
@@ -128,18 +130,32 @@ def render_summary(
 
     # Participantes
     st.write("### 👥 Participantes")
-    participants_text = "\n".join([f"- **Participante {i + 1}**: {p['name']} ({p['phone']})" for i, p in enumerate(participants)])
+    participants_text = "\n".join(
+        [
+            f"- **Participante {i + 1}**: {p['name']} ({p['phone']})"
+            for i, p in enumerate(participants)
+        ]
+    )
     st.write(participants_text)
     # st.divider()
 
     # Restrições
     st.write("### ❌ Restrições")
-    restrictions_text = "\n".join([f"- **{name}** não pode tirar _{'_, _'.join(res)}_." if res   # Para evitar ficar mostrando que ele não pode tirar ele...
-                                   else f"- **{name}** não tem restrições." 
-                                   for name, res in restrictions.items()])
+    restrictions_text = "\n".join(
+        [
+            (
+                f"- **{name}** não pode tirar _{'_, _'.join(res)}_."
+                if res  # Para evitar ficar mostrando que ele não pode tirar ele...
+                else f"- **{name}** não tem restrições."
+            )
+            for name, res in restrictions.items()
+        ]
+    )
     st.write(restrictions_text)
 
-    render_return_advance_buttons(on_return, on_advance, advance_type="primary", advance_label="Realizar sorteio")
+    render_return_advance_buttons(
+        on_return, on_advance, advance_type="primary", advance_label="Realizar sorteio"
+    )
 
 
 def render_results(errors: List[Dict], crypts: List[Dict], on_click: Callable):
@@ -147,7 +163,7 @@ def render_results(errors: List[Dict], crypts: List[Dict], on_click: Callable):
     if errors == []:
         st.success("✅ Mensagem encaminhada com sucesso para todos os participantes!")
 
-    else:    
+    else:
         error_msg = f"❌ Houve erro ao enviar o resultado para as seguintes pessoas:\n"
         for e in errors:
             error_msg += f"- {e['name']} ({e['phone']})\n"
@@ -161,65 +177,38 @@ def render_results(errors: List[Dict], crypts: List[Dict], on_click: Callable):
         seed = c["seed"]
         key = c["key"].decode("utf-8")
 
-        crypts_msg += f"\nResultados de {name}:\n" \
-                      f"{' ' * 4}- Token: {crypt}\n" \
-                      f"{' ' * 4}- Seed:  {seed}\n" \
-                      f"{' ' * 4}- Chave: {key}\n" \
-    
+        crypts_msg += (
+            f"\nResultados de {name}:\n"
+            f"{' ' * 4}- Token: {crypt}\n"
+            f"{' ' * 4}- Seed:  {seed}\n"
+            f"{' ' * 4}- Chave: {key}\n"
+        )
     with st.expander("_Resultados criptografados (auditoria)_"):
         st.code(crypts_msg, language=None)
-        
+
     st.button(
-        "Ir para início",
-        use_container_width=True,
-        type="primary",
-        on_click=on_click
+        "Ir para início", use_container_width=True, type="primary", on_click=on_click
     )
 
 
-# def render_audit_res():
-#     ss = get_secret_santa()
-#     b64_general_res = base64.b64encode(repr(ss).encode()).decode()
-#     b64_participants_res = {}
-
-#     participants = [p["name"] for p in st.session_state.participants]
-#     for p in participants:
-#         p_res = ss.get_result(p)
-#         base_msg = f"{p}, você tirou {p_res} no sorteio."
-#         b64_p_res = base64.b64encode(base_msg.encode()).decode()
-
-#         b64_participants_res[p] = b64_p_res
-
-#     with st.expander("Encode dos resultados (auditoria)"):
-#         st.write(f"**Resultado GERAL**: {b64_general_res}")
-#         for pp in b64_participants_res.keys():
-#             st.write(f"**Resultado {pp}**: {b64_participants_res[pp]}")
-
-# def render_finish(on_finish: Callable):
-#     st.button(
-#         "Finalizar",
-#         use_container_width=True,
-#         type="primary",
-#         on_click=on_finish
-#     )
-
-
-def render_return_advance_buttons(on_return: Callable, on_advance: Callable, 
-                                  return_label: str = "Voltar", advance_label: str = "Avançar",
-                                  return_type: str = "secondary", advance_type: str = "secondary"):
+def render_return_advance_buttons(
+    on_return: Callable,
+    on_advance: Callable,
+    return_label: str = "Voltar",
+    advance_label: str = "Avançar",
+    return_type: str = "secondary",
+    advance_type: str = "secondary",
+):
     col1, col2 = st.columns(2)
-    
+
     col1.button(
         return_label,
         # key="...",  # TODO: Agora não uso (referencio direto)... Faz sentido passar?
         use_container_width=True,
         type=return_type,
-        on_click=on_return
+        on_click=on_return,
     )
 
     col2.button(
-        advance_label,
-        use_container_width=True,
-        type=advance_type,
-        on_click=on_advance
+        advance_label, use_container_width=True, type=advance_type, on_click=on_advance
     )

@@ -1,12 +1,23 @@
 import re
 import streamlit as st
 from typing import List
-from .utils import validate_name, format_name, validate_phone, format_phone, get_available_algorithms
-from .. import SecretSanta
+from src.domain import SecretSanta
+from src.app.utils import (
+    validate_name,
+    format_name,
+    validate_phone,
+    format_phone,
+    get_available_algorithms,
+)
+
 
 def handle_participants_num_form() -> bool:
-    st.session_state["flow.secret_santa.description"] = st.session_state.get("draft.secret_santa.description")
-    st.session_state["flow.secret_santa.num_participants"] = st.session_state.get("draft.secret_santa.num_participants")
+    st.session_state["flow.secret_santa.description"] = st.session_state.get(
+        "draft.secret_santa.description"
+    )
+    st.session_state["flow.secret_santa.num_participants"] = st.session_state.get(
+        "draft.secret_santa.num_participants"
+    )
     return True
 
 
@@ -19,17 +30,23 @@ def handle_participants_dict_form(num_participants: int) -> bool:
         if not validate_name(participant_name):
             popup_error(f'Nome inválido no participante {i+1}: "{participant_name}"')
             all_valid = False
-        
+
         if not validate_phone(participant_phone):
-            popup_error(f'Telefone inválido no participante {i+1}: "{participant_phone}"')
+            popup_error(
+                f'Telefone inválido no participante {i+1}: "{participant_phone}"'
+            )
             all_valid = False
 
     if not all_valid:
         return False
 
     for i in range(num_participants):
-        st.session_state[f"flow.participants.{i}.name"] = format_name(st.session_state.get(f"draft.participants.{i}.name"))
-        st.session_state[f"flow.participants.{i}.phone"] = format_phone(st.session_state.get(f"draft.participants.{i}.phone"))
+        st.session_state[f"flow.participants.{i}.name"] = format_name(
+            st.session_state.get(f"draft.participants.{i}.name")
+        )
+        st.session_state[f"flow.participants.{i}.phone"] = format_phone(
+            st.session_state.get(f"draft.participants.{i}.phone")
+        )
 
     return True
 
@@ -39,33 +56,32 @@ def handle_restrictions_form(participants_name: List[str]) -> bool:
 
     num_participants = len(participants_name)
     for participant in participants_name:
-        participant_restrictions = st.session_state.get(f"draft.restrictions.{participant}", [])
+        participant_restrictions = st.session_state.get(
+            f"draft.restrictions.{participant}", []
+        )
 
-        if len(participant_restrictions) == num_participants - 1:  # Descontando ele próprio
-            popup_error(f"O participante {participant} deve poder tirar pelo menos uma pessoa.")
+        if (
+            len(participant_restrictions) == num_participants - 1
+        ):  # Descontando ele próprio
+            popup_error(
+                f"O participante {participant} deve poder tirar pelo menos uma pessoa."
+            )
             all_valid = False
 
     if not all_valid:
         return False
 
     for participant in participants_name:
-        st.session_state[f"flow.restrictions.{participant}"] = st.session_state.get(f"draft.restrictions.{participant}")
+        st.session_state[f"flow.restrictions.{participant}"] = st.session_state.get(
+            f"draft.restrictions.{participant}"
+        )
 
     return True
 
 
 def handle_algorithm_selection_form() -> bool:
-    st.session_state["flow.secret_santa.selected_algorithm"] = st.session_state.get("draft.secret_santa.selected_algorithm")
-    return True
-
-
-def handle_secret_santa_creation() -> bool:
-    st.session_state["flow.objects.secret_santa"] = SecretSanta(
-        participants=[v for k, v in st.session_state.items() if re.match("^flow.participants.\d+.name$", k)], 
-        restrictions={k.split('flow.restrictions.')[1]: set(v) | {k.split('flow.restrictions.')[1]}  # Para add o próprio usuário a sua lista de restrições 
-                    for k, v in st.session_state.items() if re.match("^flow.restrictions.*$", k)}, 
-        drawer=get_available_algorithms()[st.session_state.get("flow.secret_santa.selected_algorithm")], 
-        description=st.session_state.get("flow.secret_santa.description")
+    st.session_state["flow.secret_santa.selected_algorithm"] = st.session_state.get(
+        "draft.secret_santa.selected_algorithm"
     )
     return True
 

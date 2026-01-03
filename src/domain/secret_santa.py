@@ -1,6 +1,7 @@
 from typing import Dict, List, Set
 from ..drawers import BaseDrawer
 
+
 class SecretSanta:
     def __init__(
         self,
@@ -10,7 +11,9 @@ class SecretSanta:
         description: str = "Amigo Secreto",
     ) -> None:
         self._participants = participants.copy()
-        self._restrictions = {k: set(v) for k, v in restrictions.items()}  # Para fazer deep copy dos sets tb
+        self._restrictions = {
+            k: set(v) for k, v in restrictions.items()
+        }  # Para fazer deep copy dos sets tb
         self._description = description
         self._drawer = drawer
         self._results = {}
@@ -31,8 +34,10 @@ class SecretSanta:
 
     @property
     def results(self) -> Dict[str, str]:
-        return self._results.copy()  # Para garantir que o usuário não acesse o valor diretamente
-    
+        return (
+            self._results.copy()
+        )  # Para garantir que o usuário não acesse o valor diretamente
+
     def draw(self, redraw: bool = False) -> Dict[str, str]:
         if self.is_drawn() and not redraw:
             return self.results
@@ -45,7 +50,9 @@ class SecretSanta:
 
     def get_result(self, participant: str) -> str:
         if not self.is_drawn():
-            raise ValueError("Sorteio ainda não realizado. Execute o método generate_drawing antes de chamar este método.")
+            raise ValueError(
+                "Sorteio ainda não realizado. Execute o método generate_drawing antes de chamar este método."
+            )
 
         try:
             return self._results[participant]
