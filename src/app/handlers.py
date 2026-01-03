@@ -1,6 +1,8 @@
+import re
 import streamlit as st
 from typing import List
-from .utils import validate_name, format_name, validate_phone, format_phone
+from .utils import validate_name, format_name, validate_phone, format_phone, get_available_algorithms
+from .. import SecretSanta
 
 def handle_participants_num_form() -> bool:
     st.session_state["flow.secret_santa.description"] = st.session_state.get("draft.secret_santa.description")
@@ -54,6 +56,17 @@ def handle_restrictions_form(participants_name: List[str]) -> bool:
 
 def handle_algorithm_selection_form() -> bool:
     st.session_state["flow.secret_santa.selected_algorithm"] = st.session_state.get("draft.secret_santa.selected_algorithm")
+    return True
+
+
+def handle_secret_santa_creation() -> bool:
+    st.session_state["flow.objects.secret_santa"] = SecretSanta(
+        participants=[v for k, v in st.session_state.items() if re.match("^flow.participants.\d+.name$", k)], 
+        restrictions={k.split('flow.restrictions.')[1]: set(v) | {k.split('flow.restrictions.')[1]}  # Para add o próprio usuário a sua lista de restrições 
+                    for k, v in st.session_state.items() if re.match("^flow.restrictions.*$", k)}, 
+        drawer=get_available_algorithms()[st.session_state.get("flow.secret_santa.selected_algorithm")], 
+        description=st.session_state.get("flow.secret_santa.description")
+    )
     return True
 
 

@@ -9,7 +9,7 @@ from src import SecretSanta, BaseDrawer, DFSDrawer, LasVegasDrawer, WAHA
 from src.exceptions import DrawException
 from .renderers import *
 from .handlers import *
-from .utils import scroll_to_top, waha_is_working, format_secret_santa_message
+from .utils import scroll_to_top, waha_is_working, format_secret_santa_message, generate_random_seed, seed_to_key, encrypt_res
 
 
 def run_app():
@@ -60,11 +60,13 @@ def run_app():
                 participants=participants,
                 restrictions=restrictions,
                 on_return=lambda: go_to_step(4),
-                on_advance=lambda: handle_and_advance(run_drawing_flow, next_step=6)
+                on_advance=lambda: run_drawing_flow(step_to_go=6)
             )
 
         case 6:
-            go_to_step(1)
+            errors = st.session_state.get("flow.messages.errors")
+            crypts = st.session_state.get("flow.results.crypts")
+            render_results(errors, crypts, on_click=lambda: go_to_step(1))
 
 
 def initialize_waha():
@@ -96,8 +98,8 @@ def initialize_step():
 
 def handle_and_advance(handler_function: Callable, next_step: int):
     if handler_function():
-        go_to_step(next_step)
         scroll_to_top()  # Vai para o topo da página
+        go_to_step(next_step)
 
 
 def go_to_step(step: int):
@@ -116,6 +118,15 @@ def update_drafts_from_flow():
             # st.session_state.setdefault(draft_key,  v)  # Só troca se não houver default... Pior, mas suprime o warning...
 
 
+def run_drawing_flow(step_to_go: int):
+    initialize_secret_santa()
+    draw_is_successful = run_draw()
+    if draw_is_successful: 
+        send_messages(max_retries=3)
+        generate_crypts()
+        go_to_step(step_to_go)
+
+    
 def initialize_secret_santa():
     st.session_state["flow.objects.secret_santa"] = SecretSanta(
         participants=[v for k, v in st.session_state.items() if re.match("^flow.participants.\d+.name$", k)], 
@@ -126,46 +137,69 @@ def initialize_secret_santa():
     )
 
 
-def run_drawing_flow(max_retries: int = 3):
-    with st.spinner("🎲 Gerando sorteio..."):
-        try:
-            initialize_secret_santa()
-            ss = st.session_state.get("flow.objects.secret_santa")
-            _ = ss.draw(redraw=False)
-            st.success("✅ Sorteio finalizado com sucesso!")
-        
-        except DrawException:
-            st.error("Não foi possível gerar o sorteio em tempo hábil. É possível que exista uma restrição impossível de ser resolvida. Tente novamente.")
-            return False
-    
-    with st.spinner('📩 Enviando resultados...'):
-        waha = st.session_state.get("flow.objects.waha")
-        description = st.session_state.get("flow.secret_santa.description")
-
-        for i in range(st.session_state.get("flow.secret_santa.num_participants")):
-            name = st.session_state.get(f"flow.participants.{i}.name")
-            phone = re.sub(r"[ +()\-\s]", "", st.session_state.get(f"flow.participants.{i}.phone"))  # API do WAHA demanda numero plano
-
-            result = ss.get_result(name)
-
-            msg = format_secret_santa_message(name, result, description)
-            success = False
-
-            for attempt in range(max_retries + 1):
-                status_code, _ = waha.send_msg(phone, msg)
-
-                if status_code == 201:
-                    success = True
-                    break
-
-                time.sleep(5 * attempt)  # Backoff para retry
-
-            if not success:
-                masked = base64.b64encode(msg.encode()).decode()
-                st.error(
-                    f"Houve um erro ao enviar a mensagem para {name} ({phone}).\n\n"
-                    f"**Resultado mascarado**: {masked}"
-                )
-
-        st.success("✅ Resultados enviados com sucesso!")
+def run_draw() -> bool:
+    try:
+        ss = st.session_state.get("flow.objects.secret_santa")
+        _ = ss.draw(redraw=False)
         return True
+    
+    except DrawException as e:
+        popup_error(e)
+        return False
+
+
+def send_messages(max_retries: int = 3):
+    waha = st.session_state.get("flow.objects.waha")
+    description = st.session_state.get("flow.secret_santa.description")
+    ss = st.session_state.get("flow.objects.secret_santa")
+
+    errors = []
+    for i in range(st.session_state.get("flow.secret_santa.num_participants")):
+        name = st.session_state.get(f"flow.participants.{i}.name")
+        phone = re.sub(r"[ +()\-\s]", "", st.session_state.get(f"flow.participants.{i}.phone"))  # API do WAHA demanda numero plano
+
+        result = ss.get_result(name)
+
+        msg = format_secret_santa_message(name, result, description)
+        success = False
+        for attempt in range(max_retries + 1):
+            status_code, _ = waha.send_msg(phone, msg)
+
+            if status_code == 201:
+                success = True
+                break
+
+            time.sleep(5 * attempt)  # Backoff para retry
+
+        if not success:
+            errors.append({
+                "name": name,
+                "phone": phone
+            })
+
+    st.session_state["flow.messages.errors"] = errors
+
+
+def generate_crypts():
+    num_participants = st.session_state.get("flow.secret_santa.num_participants")
+    participants_name = [st.session_state.get(f"flow.participants.{i}.name") for i in range(num_participants)]
+    ss = st.session_state.get("flow.objects.secret_santa")
+
+    crypts = []
+    for p in participants_name:
+        seed = generate_random_seed()
+        key = seed_to_key(seed)
+
+        p_res = ss.get_result(p)
+        # base_msg = f"{p}, você tirou {p_res} no sorteio."
+        base_msg = p_res
+        crypt = encrypt_res(base_msg, seed)
+        
+        crypts.append({
+            "name": p,
+            "crypt": crypt,
+            "seed": seed,
+            "key": key
+        })
+
+    st.session_state["flow.results.crypts"] = crypts

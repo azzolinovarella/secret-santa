@@ -139,36 +139,87 @@ def render_summary(
                                    for name, res in restrictions.items()])
     st.write(restrictions_text)
 
-    render_return_advance_buttons(on_return, on_advance, advance_label="Realizar sorteio")
+    render_return_advance_buttons(on_return, on_advance, advance_type="primary", advance_label="Realizar sorteio")
 
 
-def render_audit_res():
-    ...
+def render_results(errors: List[Dict], crypts: List[Dict], on_click: Callable):
+    st.write("## 📖 Resultado do sorteio")
+    if errors == []:
+        st.success("✅ Mensagem encaminhada com sucesso para todos os participantes!")
 
-def render_finish(on_finish: Callable):
+    else:    
+        error_msg = f"❌ Houve erro ao enviar o resultado para as seguintes pessoas:\n"
+        for e in errors:
+            error_msg += f"- {e['name']} ({e['phone']})\n"
+
+        st.error(error_msg)
+
+    crypts_msg = ""
+    for c in crypts:
+        name = c["name"]
+        crypt = c["crypt"]
+        seed = c["seed"]
+        key = c["key"].decode("utf-8")
+
+        crypts_msg += f"\nResultados de {name}:\n" \
+                      f"{' ' * 4}- Token: {crypt}\n" \
+                      f"{' ' * 4}- Seed:  {seed}\n" \
+                      f"{' ' * 4}- Chave: {key}\n" \
+    
+    with st.expander("_Resultados criptografados (auditoria)_"):
+        st.code(crypts_msg, language=None)
+        
     st.button(
-        "Finalizar",
+        "Ir para início",
         use_container_width=True,
         type="primary",
-        on_click=on_finish
+        on_click=on_click
     )
 
 
+# def render_audit_res():
+#     ss = get_secret_santa()
+#     b64_general_res = base64.b64encode(repr(ss).encode()).decode()
+#     b64_participants_res = {}
+
+#     participants = [p["name"] for p in st.session_state.participants]
+#     for p in participants:
+#         p_res = ss.get_result(p)
+#         base_msg = f"{p}, você tirou {p_res} no sorteio."
+#         b64_p_res = base64.b64encode(base_msg.encode()).decode()
+
+#         b64_participants_res[p] = b64_p_res
+
+#     with st.expander("Encode dos resultados (auditoria)"):
+#         st.write(f"**Resultado GERAL**: {b64_general_res}")
+#         for pp in b64_participants_res.keys():
+#             st.write(f"**Resultado {pp}**: {b64_participants_res[pp]}")
+
+# def render_finish(on_finish: Callable):
+#     st.button(
+#         "Finalizar",
+#         use_container_width=True,
+#         type="primary",
+#         on_click=on_finish
+#     )
+
+
 def render_return_advance_buttons(on_return: Callable, on_advance: Callable, 
-                                  return_label: str = "Voltar", advance_label: str = "Avançar"):
+                                  return_label: str = "Voltar", advance_label: str = "Avançar",
+                                  return_type: str = "secondary", advance_type: str = "secondary"):
     col1, col2 = st.columns(2)
     
     col1.button(
         return_label,
         # key="...",  # TODO: Agora não uso (referencio direto)... Faz sentido passar?
         use_container_width=True,
-        type="primary",
+        type=return_type,
         on_click=on_return
     )
 
     col2.button(
         advance_label,
         use_container_width=True,
-        type="secondary",
+        type=advance_type,
         on_click=on_advance
     )

@@ -1,7 +1,12 @@
 import re
+import random
+import string
+import base64
 import phonenumbers
+import hashlib
+from cryptography.fernet import Fernet
 import streamlit.components.v1 as components
-from typing import Dict
+from typing import Dict, List
 from src import WAHA, SecretSanta, BaseDrawer, DFSDrawer, LasVegasDrawer
 
 
@@ -59,6 +64,27 @@ def format_secret_santa_message(
         f"No sorteio ({description}), você tirou: *{drawn_name}*.\n\n"
         "Guarde segredo 🤫"
     )
+
+
+def encrypt_res(text: str, seed: str) -> str:
+    key = seed_to_key(seed)
+    f = Fernet(key)  # Exige 32 bytes codificados em base 64
+    return f.encrypt(text.encode()).decode()
+
+
+def seed_to_key(seed: str) -> bytes:
+    digest = hashlib.sha256(seed.encode()).digest()
+    return base64.urlsafe_b64encode(digest)
+
+
+def decrypt_result(token: str, seed: str) -> str:
+    key = seed_to_key(seed)
+    f = Fernet(key)
+    return f.decrypt(token.encode()).decode()
+
+
+def generate_random_seed(length: int = 30) -> str:
+    return ''.join(random.choices(string.ascii_letters + string.digits, k=length))
 
 
 def scroll_to_top():  # TODO: Melhor lugar para colocar?
