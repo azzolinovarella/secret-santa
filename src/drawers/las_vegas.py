@@ -4,21 +4,31 @@ from typing import List, Dict, Set
 from .base import BaseDrawer
 from ..exceptions import DrawTimeoutException
 
+
 class LasVegasDrawer(BaseDrawer):
     def __init__(self, timeout: float = 30):
         self._timeout = timeout
 
-    def _draw(self, participants: List[str], restrictions: Dict[str, Set[str]]) -> Dict[str, str]:
+    def _draw(
+        self, participants: List[str], restrictions: Dict[str, Set[str]]
+    ) -> Dict[str, str]:
         results = {}
 
         start_time = time.monotonic()
         while True:
             if time.monotonic() - start_time > self._timeout:
-                raise DrawTimeoutException("Sorteio não convergiu dentro do tempo limite. As restrições podem ser impossíveis de satisfazer.")
+                raise DrawTimeoutException(
+                    "Sorteio não convergiu dentro do tempo limite. As restrições podem ser impossíveis de satisfazer."
+                )
 
-            participants_list = sorted(participants,  # Heuristica para começarmos pelo mais restritivo 
-                                       key=lambda p: (len(restrictions[p]), random.random()),  # Em caso de empate, faz sorteio aleatório
-                                       reverse=True)
+            participants_list = sorted(
+                participants,  # Heuristica para começarmos pelo mais restritivo
+                key=lambda p: (
+                    len(restrictions[p]),
+                    random.random(),
+                ),  # Em caso de empate, faz sorteio aleatório
+                reverse=True,
+            )
             available_users = set(participants_list)
 
             results = {}
