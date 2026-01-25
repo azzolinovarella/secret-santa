@@ -3,6 +3,9 @@
 uv:
 	uv sync
 
+pull:
+	docker compose pull
+
 build:
 	docker compose build
 

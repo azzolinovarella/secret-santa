@@ -1,6 +1,7 @@
 import time
 import os
 import re
+import logging
 import streamlit as st
 from typing import Callable
 from src.domain import SecretSanta
@@ -34,17 +35,24 @@ from src.app.utils import (
 )
 
 
+logger = logging.getLogger(__name__)
+
+
 def run_app():
     render_header()
     initialize_waha()
 
     if not waha_is_working(st.session_state.get("flow.objects.waha")):
+        logging.warning("Serviço do WAHA não está funcionando")
+        
         render_waha_error()
         return
 
     initialize_step()
     match st.session_state.get("flow.step"):
         case 1:
+            logging.info("Renderizando forms de número de usuários")
+
             render_participants_num_form(
                 on_click=lambda: handle_and_advance(
                     handle_participants_num_form, next_step=2
@@ -52,6 +60,8 @@ def run_app():
             )
 
         case 2:
+            logging.info("Renderizando forms informações de usuários")
+
             num_participants = st.session_state.get(
                 "flow.secret_santa.num_participants"
             )
@@ -64,6 +74,8 @@ def run_app():
             )  # TODO: Melhor forma?
 
         case 3:
+            logging.info("Renderizando forms restrições")
+
             participants_name = [
                 v
                 for k, v in st.session_state.items()
@@ -78,6 +90,8 @@ def run_app():
             )
 
         case 4:
+            logging.info("Renderizando forms seleção de algoritmo")
+
             render_algorithm_selection_form(
                 on_return=lambda: go_to_step(3),
                 on_advance=lambda: handle_and_advance(
@@ -86,6 +100,8 @@ def run_app():
             )
 
         case 5:
+            logging.info("Renderizando sumário")
+
             description = st.session_state.get("flow.secret_santa.description")
             num_participants = st.session_state.get(
                 "flow.secret_santa.num_participants"
@@ -117,9 +133,14 @@ def run_app():
             )
 
         case 6:
+            logging.info("Renderizando forms informações de usuários")
+
             errors = st.session_state.get("flow.messages.errors")
             crypts = st.session_state.get("flow.results.crypts")
             render_results(errors, crypts, on_click=lambda: go_to_step(1))
+
+            logging.debug("Resultados gerados", extra={"crypts": crypts})
+            logging.info("Processo finalizado")
 
 
 def initialize_waha():
