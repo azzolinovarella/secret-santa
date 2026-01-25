@@ -20,4 +20,4 @@ logs:
 
 expose:
 	make start
-	ngrok http 8501 --url https://devoted-flea-separately.ngrok-free.app
+	ngrok http 8501
