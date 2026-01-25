@@ -15,6 +15,7 @@ services:
 
   waha:
     image: devlikeapro/waha:latest
+    platform: linux/amd64  # Para evitar erro (não há para arm)
     container_name: waha-api
     ports:
       - "127.0.0.1:3000:3000"  # Acessível apenas pela máquina que hospeda o serviço
