@@ -2,8 +2,8 @@
 
 <!-- 
 Próximos passos:
-    - [ ] Add logs
+    - [X] Add logs
+    - [X] Adicionar medidas da pessoa junto ao cadastro e enviá-las no corpo da mensagem
     - [ ] Documentar funções
-    - [ ] Adicionar medidas da pessoa junto ao cadastro e enviá-las no corpo da mensagem
     - [ ] Subir um banco junto com os resultados do sorteio para auditoria
  -->

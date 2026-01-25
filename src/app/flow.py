@@ -113,6 +113,9 @@ def run_app():
                 {
                     "name": st.session_state.get(f"flow.participants.{i}.name"),
                     "phone": st.session_state.get(f"flow.participants.{i}.phone"),
+                    "upper_size": st.session_state.get(f"flow.participants.{i}.upper_size"),
+                    "bottom_size": st.session_state.get(f"flow.participants.{i}.bottom_size"),
+                    "shoe_size": st.session_state.get(f"flow.participants.{i}.shoe_size")
                 }
                 for i in range(num_participants)
             ]
@@ -249,8 +252,15 @@ def send_messages(max_retries: int = 3):
         )  # API do WAHA demanda numero plano
 
         result = ss.get_result(name)
+        # TODO: Corrigir para deixar mais otimizado
+        res_id = [j for j in range(st.session_state.get("flow.secret_santa.num_participants")) if 
+                  st.session_state.get(f"flow.participants.{j}.name") == result][0]
+        draw_upper_size = st.session_state.get(f"flow.participants.{res_id}.upper_size")
+        draw_bottom_size = st.session_state.get(f"flow.participants.{res_id}.bottom_size")
+        draw_shoe_size = st.session_state.get(f"flow.participants.{res_id}.shoe_size")
 
-        msg = format_secret_santa_message(name, result, description)
+        msg = format_secret_santa_message(name, result, description, 
+                                          draw_upper_size, draw_bottom_size, draw_shoe_size)
         success = False
         for attempt in range(max_retries + 1):
             status_code, _ = waha.send_msg(phone, msg)

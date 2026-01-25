@@ -42,20 +42,41 @@ def render_participants_dict_form(
     )
 
     for i in range(num_participants):
-        col1, col2 = st.columns([0.6, 0.4])
+        st.write(f"### Informações do participante {i + 1}")
+        col11, col12 = st.columns([0.6, 0.4])
+        col21, col22, col23 = st.columns([0.3, 0.3, 0.3])
 
-        col1.text_input(
+        # Linha 1
+        col11.text_input(
             f"Nome do participante {i + 1}",
             placeholder="Fulano da Silva",
             key=f"draft.participants.{i}.name",
         )
 
-        col2.text_input(
+        col12.text_input(
             f"Telefone do participante {i + 1}",
             placeholder="55 11 4002 8922",
             key=f"draft.participants.{i}.phone",
         )
 
+        # Linha 2
+        col21.text_input(
+            f"Tamanho de camisa do participante {i + 1}", 
+            placeholder="M",
+            key=f"draft.participants.{i}.upper_size"
+        )
+        
+        col22.text_input(
+            f"Tamanho de calça do participante {i + 1}", 
+            placeholder="M ou 38",
+            key=f"draft.participants.{i}.bottom_size"
+        )
+        col23.text_input(
+            f"Tamanho de tênis do participante {i + 1}", 
+            placeholder="Tênis 40 e Chinelo 41",
+            key=f"draft.participants.{i}.shoe_size"
+        )
+        
     render_return_advance_buttons(on_return, on_advance)
 
 
@@ -132,7 +153,12 @@ def render_summary(
     st.write("### 👥 Participantes")
     participants_text = "\n".join(
         [
-            f"- **Participante {i + 1}**: {p['name']} ({p['phone']})"
+            f"#### Participante {i + 1}\n"
+            f"- Nome: {p['name']}\n"
+            f"- Telefone: {p['phone']}\n"
+            f"- Tamanho de camisa: {p['upper_size']}\n"
+            f"- Tamanho de calça/shorts: {p['bottom_size']}\n"
+            f"- Tamanho de tênis/chinelo: {p['shoe_size']}\n"
             for i, p in enumerate(participants)
         ]
     )
