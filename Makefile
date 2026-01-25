@@ -1,22 +1,10 @@
 .PHONY: up up-d down logs exec
 
-uv:
-	uv sync
-
-pull:
-	docker compose pull
-
 build:
 	docker compose build
 
 up:
 	docker compose up
-
-up-d:
-	docker compose up -d
-
-up-build:
-	docker compose up -d --build
 
 start:
 	docker compose start
@@ -27,8 +15,9 @@ stop:
 down:
 	docker compose down
 
-stop:
-	docker compose stop
-
 logs:
 	docker compose logs -f
+
+expose:
+	make start
+	ngrok http 8501 --url https://devoted-flea-separately.ngrok-free.app

@@ -44,7 +44,7 @@ def run_app():
 
     if not waha_is_working(st.session_state.get("flow.objects.waha")):
         logging.warning("Serviço do WAHA não está funcionando")
-        
+
         render_waha_error()
         return
 
@@ -113,9 +113,15 @@ def run_app():
                 {
                     "name": st.session_state.get(f"flow.participants.{i}.name"),
                     "phone": st.session_state.get(f"flow.participants.{i}.phone"),
-                    "upper_size": st.session_state.get(f"flow.participants.{i}.upper_size"),
-                    "bottom_size": st.session_state.get(f"flow.participants.{i}.bottom_size"),
-                    "shoe_size": st.session_state.get(f"flow.participants.{i}.shoe_size")
+                    "upper_size": st.session_state.get(
+                        f"flow.participants.{i}.upper_size"
+                    ),
+                    "bottom_size": st.session_state.get(
+                        f"flow.participants.{i}.bottom_size"
+                    ),
+                    "shoe_size": st.session_state.get(
+                        f"flow.participants.{i}.shoe_size"
+                    ),
                 }
                 for i in range(num_participants)
             ]
@@ -177,7 +183,7 @@ def initialize_step():
 
 def handle_and_advance(handler_function: Callable, next_step: int):
     if handler_function():
-        scroll_to_top()  # Vai para o topo da página
+        # scroll_to_top()  # Vai para o topo da página
         go_to_step(next_step)
 
 
@@ -244,23 +250,40 @@ def send_messages(max_retries: int = 3):
     description = st.session_state.get("flow.secret_santa.description")
     ss = st.session_state.get("flow.objects.secret_santa")
 
+    participants_by_name = {
+        st.session_state.get(f"flow.participants.{i}.name"): {
+            "phone": st.session_state.get(f"flow.participants.{i}.phone"),
+            "upper_size": st.session_state.get(f"flow.participants.{i}.upper_size"),
+            "bottom_size": st.session_state.get(f"flow.participants.{i}.bottom_size"),
+            "shoe_size": st.session_state.get(f"flow.participants.{i}.shoe_size"),
+        }
+        for i in range(st.session_state.get("flow.secret_santa.num_participants"))
+    }
+
     errors = []
-    for i in range(st.session_state.get("flow.secret_santa.num_participants")):
-        name = st.session_state.get(f"flow.participants.{i}.name")
-        phone = re.sub(
-            r"[ +()\-\s]", "", st.session_state.get(f"flow.participants.{i}.phone")
-        )  # API do WAHA demanda numero plano
+    for name, participant in participants_by_name.items():
+        phone = re.sub(r"[ +()\-\s]", "", participant["phone"])
 
-        result = ss.get_result(name)
-        # TODO: Corrigir para deixar mais otimizado
-        res_id = [j for j in range(st.session_state.get("flow.secret_santa.num_participants")) if 
-                  st.session_state.get(f"flow.participants.{j}.name") == result][0]
-        draw_upper_size = st.session_state.get(f"flow.participants.{res_id}.upper_size")
-        draw_bottom_size = st.session_state.get(f"flow.participants.{res_id}.bottom_size")
-        draw_shoe_size = st.session_state.get(f"flow.participants.{res_id}.shoe_size")
+        drawn_name = ss.get_result(name)
+        drawn_participant = participants_by_name.get(drawn_name)
 
-        msg = format_secret_santa_message(name, result, description, 
-                                          draw_upper_size, draw_bottom_size, draw_shoe_size)
+        if not drawn_participant:
+            errors.append({"name": name, "reason": "drawn participant not found"})
+            continue
+
+        draw_upper_size = drawn_participant["upper_size"]
+        draw_bottom_size = drawn_participant["bottom_size"]
+        draw_shoe_size = drawn_participant["shoe_size"]
+
+        msg = format_secret_santa_message(
+            name,
+            drawn_name,
+            description,
+            draw_upper_size,
+            draw_bottom_size,
+            draw_shoe_size,
+        )
+
         success = False
         for attempt in range(max_retries + 1):
             status_code, _ = waha.send_msg(phone, msg)
