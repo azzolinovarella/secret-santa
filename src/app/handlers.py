@@ -37,14 +37,35 @@ def handle_participants_dict_form(num_participants: int) -> bool:
     for i in range(num_participants):
         participant_name = st.session_state.get(f"draft.participants.{i}.name")
         participant_phone = st.session_state.get(f"draft.participants.{i}.phone")
+        participant_upper_size = st.session_state.get(f"draft.participants.{i}.upper_size")
+        participant_bottom_size = st.session_state.get(f"draft.participants.{i}.bottom_size")
+        participant_shoe_size = st.session_state.get(f"draft.participants.{i}.shoe_size")
 
         if not validate_name(participant_name):
-            popup_error(f'Nome inválido no participante {i+1}: "{participant_name}"')
+            popup_error(f"Nome inválido no participante {i+1}")
             all_valid = False
 
         if not validate_phone(participant_phone):
             popup_error(
-                f'Telefone inválido no participante {i+1}: "{participant_phone}"'
+                f"Telefone inválido no participante {i+1}"
+            )
+            all_valid = False
+        
+        if participant_upper_size.strip() == "":
+            popup_error(
+                f"Tamanho de camisa inválido do participante {i+1}"
+            )
+            all_valid = False
+        
+        if participant_bottom_size.strip() == "":
+            popup_error(
+                f"Tamanho de calça inválido do participante {i+1}"
+            )
+            all_valid = False
+        
+        if participant_shoe_size.strip() == "":
+            popup_error(
+                f"Tamanho de tênis inválido do participante {i+1}"
             )
             all_valid = False
 
@@ -61,13 +82,22 @@ def handle_participants_dict_form(num_participants: int) -> bool:
         phone = format_phone(
             st.session_state.get(f"draft.participants.{i}.phone")
         )
+        upper_size = st.session_state.get(f"draft.participants.{i}.upper_size").strip()
+        bottom_size = st.session_state.get(f"draft.participants.{i}.bottom_size").strip()
+        shoe_size = st.session_state.get(f"draft.participants.{i}.shoe_size").strip()
 
         st.session_state[f"flow.participants.{i}.name"] = name
         st.session_state[f"flow.participants.{i}.phone"] = phone
+        st.session_state[f"flow.participants.{i}.upper_size"] = upper_size
+        st.session_state[f"flow.participants.{i}.bottom_size"] = bottom_size
+        st.session_state[f"flow.participants.{i}.shoe_size"] = shoe_size
 
         participants_logged[i] = {
             "name": name,
             "phone": phone,
+            "upper_size": upper_size,
+            "bottom_size": bottom_size,
+            "shoe_size": shoe_size
         }
 
     logger.info("Participantes salvos com sucesso")
