@@ -61,22 +61,22 @@ def render_participants_dict_form(
 
         # Linha 2
         col21.text_input(
-            f"Tamanho de camisa do participante {i + 1}", 
+            f"Tamanho de camisa do participante {i + 1}",
             placeholder="M",
-            key=f"draft.participants.{i}.upper_size"
+            key=f"draft.participants.{i}.upper_size",
         )
-        
+
         col22.text_input(
-            f"Tamanho de calça do participante {i + 1}", 
+            f"Tamanho de calça do participante {i + 1}",
             placeholder="M ou 38",
-            key=f"draft.participants.{i}.bottom_size"
+            key=f"draft.participants.{i}.bottom_size",
         )
         col23.text_input(
-            f"Tamanho de tênis do participante {i + 1}", 
+            f"Tamanho de tênis do participante {i + 1}",
             placeholder="Tênis 40 e Chinelo 41",
-            key=f"draft.participants.{i}.shoe_size"
+            key=f"draft.participants.{i}.shoe_size",
         )
-        
+
     render_return_advance_buttons(on_return, on_advance)
 
 

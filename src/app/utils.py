@@ -58,8 +58,12 @@ def format_phone(phone: str) -> bool:
 
 
 def format_secret_santa_message(
-    recipient_name: str, drawn_name: str, description: str,
-    draw_upper_size: str, draw_bottom_size: str, draw_shoe_size: str
+    recipient_name: str,
+    drawn_name: str,
+    description: str,
+    draw_upper_size: str,
+    draw_bottom_size: str,
+    draw_shoe_size: str,
 ) -> str:
     return (
         "*_[🤖 MENSAGEM AUTOMÁTICA - NÃO RESPONDA 🤖]_*\n\n"
