@@ -41,25 +41,33 @@ secret-santa/
 ## 🚀 Como Executar
 ### Pré-requisitos
 - Docker e Docker Compose instalados
-- ou Python 3.13+ e pip/uv configurados
 
-### Variáveis de Ambiente
-Configure um arquivo `.env` na raiz do projeto com as variáveis necessárias para a integração com WAHA e outras configurações específicas do seu ambiente.
-
-### Execução via Make
+### Fluxo de Execução
 ```bash
-# Compilar a imagem Docker
-make build
-
-# Iniciar a aplicação
+# 1. Compilar e iniciar
 make up
 
-# Visualizar logs
-make logs
+# 2. Acessar a aplicação em http://localhost:8501
 
-# Parar a aplicação
-make stop
-
-# Remover containers e volumes
+# 3. Parar a aplicação
 make down
 ```
+
+### Comandos Adicionais
+Para maior flexibilidade, você pode usar outros comandos do Make:
+
+```bash
+# Compilar a imagem (primeira vez)
+make build
+
+# Iniciar containers já criados (após first build)
+make start
+
+# Parar containers sem removê-los (preserva configuração)
+make stop
+
+# Remover containers e volumes (limpeza completa)
+make down
+```
+
+> **Nota**: É necessário configurar um arquivo `.env` na raiz do projeto com as variáveis necessárias para a integração com WAHA conforme seu ambiente (vide exemplo `.env.example`).

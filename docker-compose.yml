@@ -10,8 +10,8 @@ services:
       - waha
     env_file:
       - .env
-    volumes:  # DESCOMENTAR APENAS PARA DEBUG! Evitar ter que ficar dando rebuild
-      - .:/app
+    # volumes:  # DESCOMENTAR APENAS PARA DEBUG! Evitar ter que ficar dando rebuild
+    #   - .:/app
 
   waha:
     image: devlikeapro/waha:latest
