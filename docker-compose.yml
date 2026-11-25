@@ -14,7 +14,7 @@ services:
     #   - .:/app
 
   waha:
-    image: devlikeapro/waha:latest
+    image: devlikeapro/waha@sha256:a033abb9381a80246b9b3ec52141bfd7259e48bcea52286f53db25a013e526e0  # Para garantir que vai continuar funcionando
     platform: linux/amd64  # Para evitar erro (não há para arm)
     container_name: waha-api
     ports:
